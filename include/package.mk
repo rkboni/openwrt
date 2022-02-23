@@ -1,9 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
 #
-# Copyright (C) 2006-2008 OpenWrt.org
-#
-# This is free software, licensed under the GNU General Public License v2.
-# See /LICENSE for more information.
-#
+# Copyright (C) 2006-2020 OpenWrt.org
 
 __package_mk:=1
 
@@ -16,6 +13,7 @@ PKG_INSTALL_DIR ?= $(PKG_BUILD_DIR)/ipkg-install
 PKG_BUILD_PARALLEL ?=
 PKG_USE_MIPS16 ?= 1
 PKG_IREMAP ?= 1
+PKG_SKIP_DOWNLOAD=$(USE_SOURCE_DIR)$(USE_GIT_TREE)$(USE_GIT_SRC_CHECKOUT)
 
 MAKE_J:=$(if $(MAKE_JOBSERVER),$(MAKE_JOBSERVER) $(if $(filter 3.% 4.0 4.1,$(MAKE_VERSION)),-j))
 
@@ -61,7 +59,7 @@ include $(INCLUDE_DIR)/quilt.mk
 
 find_library_dependencies = \
 	$(wildcard $(patsubst %,$(STAGING_DIR)/pkginfo/%.version, \
-		$(sort $(foreach dep4, \
+		$(filter-out $(BUILD_PACKAGES), $(sort $(foreach dep4, \
 			$(sort $(foreach dep3, \
 				$(sort $(foreach dep2, \
 					$(sort $(foreach dep1, \
@@ -76,7 +74,7 @@ find_library_dependencies = \
 				$(Package/$(dep3)/depends) $(dep3) \
 			)), \
 			$(Package/$(dep4)/depends) $(dep4) \
-		)), \
+		))) \
 	))
 
 
@@ -186,7 +184,7 @@ define Build/CoreTargets
   $(call Build/Autoclean)
   $(call DefaultTargets)
 
-  $(DL_DIR)/$(FILE): FORCE
+  $(call check_download_integrity)
 
   download:
 	$(foreach hook,$(Hooks/Download),
@@ -267,7 +265,7 @@ define Build/CoreTargets
 endef
 
 define Build/DefaultTargets
-  $(if $(USE_SOURCE_DIR)$(USE_GIT_TREE)$(USE_GIT_SRC_CHECKOUT),,$(if $(strip $(PKG_SOURCE_URL)),$(call Download,default)))
+  $(if $(PKG_SKIP_DOWNLOAD),,$(if $(strip $(PKG_SOURCE_URL)),$(call Download,default)))
   $(if $(DUMP),,$(Build/CoreTargets))
 
   define Build/DefaultTargets

@@ -1,9 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
 #
 # Copyright (C) 2019 OpenWrt.org
-#
-# This is free software, licensed under the GNU General Public License v2.
-# See /LICENSE for more information.
-#
 
 define KernelPackage/sound-arm-bcm2835
   TITLE:=BCM2835 ALSA driver
@@ -29,8 +26,6 @@ define KernelPackage/sound-soc-bcm2835-i2s
   TITLE:=SoC Audio support for the Broadcom 2835 I2S module
   KCONFIG:= \
     CONFIG_SND_BCM2835_SOC_I2S \
-    CONFIG_SND_SOC_AD193X_SPI=n \
-    CONFIG_SND_SOC_AD193X_I2C=n \
     CONFIG_SND_SOC_DMAENGINE_PCM=y \
     CONFIG_SND_SOC_GENERIC_DMAENGINE_PCM=y
   FILES:= \
@@ -134,6 +129,28 @@ define KernelPackage/sound-soc-allo-boss-dac/description
 endef
 
 $(eval $(call KernelPackage,sound-soc-allo-boss-dac))
+
+
+define KernelPackage/sound-soc-allo-boss2-dac
+  TITLE:=Support for Allo Boss2 DAC
+  KCONFIG:= \
+    CONFIG_SND_AUDIO_GRAPH_CARD \
+    CONFIG_SND_BCM2708_SOC_ALLO_BOSS2_DAC
+  FILES:= \
+    $(LINUX_DIR)/sound/soc/bcm/snd-soc-allo-boss2-dac.ko
+  AUTOLOAD:=$(call AutoLoad,68,snd-soc-allo-boss2-dac)
+  DEPENDS:= \
+    kmod-sound-soc-bcm2835-i2s \
+    +kmod-i2c-bcm2835 \
+    +kmod-regmap-i2c
+  $(call AddDepends/sound)
+endef
+
+define KernelPackage/sound-soc-allo-boss2-dac/description
+  This package contains support for Allo Boss2 DAC
+endef
+
+$(eval $(call KernelPackage,sound-soc-allo-boss2-dac))
 
 
 define KernelPackage/sound-soc-allo-digione
@@ -346,6 +363,26 @@ endef
 $(eval $(call KernelPackage,sound-soc-audioinjector-pi-soundcard))
 
 
+define KernelPackage/sound-soc-chipdip-dac
+  TITLE:=Support for ChipDip DAC
+  KCONFIG:= \
+    CONFIG_SND_BCM2708_SOC_CHIPDIP_DAC
+  FILES:= \
+    $(LINUX_DIR)/sound/soc/bcm/snd-soc-chipdip-dac.ko
+  AUTOLOAD:=$(call AutoLoad,68,snd-soc-chipdip-dac)
+  DEPENDS:= \
+    kmod-sound-soc-bcm2835-i2s \
+    @LINUX_5_10
+  $(call AddDepends/sound)
+endef
+
+define KernelPackage/sound-soc-chipdip-dac/description
+  This package contains support for ChipDip DAC
+endef
+
+$(eval $(call KernelPackage,sound-soc-chipdip-dac))
+
+
 define KernelPackage/sound-soc-digidac1-soundcard
   TITLE:=Support for RRA DigiDAC1
   KCONFIG:= \
@@ -490,24 +527,27 @@ $(eval $(call KernelPackage,sound-soc-hifiberry-dac))
 
 
 define KernelPackage/sound-soc-hifiberry-dacplus
-  TITLE:=Support for HifiBerry DAC+ / DAC+ Pro
+  TITLE:=Support for HifiBerry DAC+ / DAC+ Pro / Amp2
   KCONFIG:= \
     CONFIG_SND_BCM2708_SOC_HIFIBERRY_DACPLUS \
-    CONFIG_SND_SOC_PCM512x
+    CONFIG_SND_SOC_PCM512x \
+    CONFIG_SND_SOC_PCM512x_I2C
   FILES:= \
     $(LINUX_DIR)/drivers/clk/clk-hifiberry-dacpro.ko \
     $(LINUX_DIR)/sound/soc/bcm/snd-soc-hifiberry-dacplus.ko \
-    $(LINUX_DIR)/sound/soc/codecs/snd-soc-pcm512x.ko
+    $(LINUX_DIR)/sound/soc/codecs/snd-soc-pcm512x.ko \
+    $(LINUX_DIR)/sound/soc/codecs/snd-soc-pcm512x-i2c.ko
   AUTOLOAD:=$(call AutoLoad,68,clk-hifiberry-dacpro snd-soc-pcm512x \
-    snd-soc-hifiberry-dacplus)
+    snd-soc-pcm512x-i2c snd-soc-hifiberry-dacplus)
   DEPENDS:= \
     kmod-sound-soc-bcm2835-i2s \
-    +kmod-i2c-bcm2835
+    +kmod-i2c-bcm2835 \
+    +kmod-regmap-i2c
   $(call AddDepends/sound)
 endef
 
 define KernelPackage/sound-soc-hifiberry-dacplus/description
-  This package contains support for HifiBerry DAC+ / DAC+ Pro
+  This package contains support for HifiBerry DAC+ / DAC+ Pro / Amp2
 endef
 
 $(eval $(call KernelPackage,sound-soc-hifiberry-dacplus))
@@ -826,6 +866,28 @@ define KernelPackage/sound-soc-justboom-digi/description
 endef
 
 $(eval $(call KernelPackage,sound-soc-justboom-digi))
+
+
+define KernelPackage/sound-soc-pifi-40-amp
+  TITLE:=Support for PiFi-40 amp
+  KCONFIG:= \
+    CONFIG_SND_BCM2708_SOC_PIFI_40 \
+    CONFIG_SND_PIFI_40 \
+    CONFIG_SND_SOC_TAS571X
+  FILES:= \
+    $(LINUX_DIR)/sound/soc/bcm/snd-soc-pifi-40.ko \
+    $(LINUX_DIR)/sound/soc/codecs/snd-soc-tas571x.ko
+  AUTOLOAD:=$(call AutoLoad,68,snd-soc-tas571x)
+  DEPENDS:= \
+    kmod-sound-soc-bcm2835-i2s
+  $(call AddDepends/sound)
+endef
+
+define KernelPackage/sound-soc-pifi-40-amp/description
+  This package contains support for PiFi-40 amp
+endef
+
+$(eval $(call KernelPackage,sound-soc-pifi-40-amp))
 
 
 define KernelPackage/sound-soc-pisound

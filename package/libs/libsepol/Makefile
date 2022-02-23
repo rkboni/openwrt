@@ -6,12 +6,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=libsepol
-PKG_VERSION:=3.1
+PKG_VERSION:=3.3
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://github.com/SELinuxProject/selinux/releases/download/20200710
-PKG_HASH:=ae6778d01443fdd38cd30eeee846494e19f4d407b09872580372f4aa4bf8a3cc
+PKG_SOURCE_URL:=https://github.com/SELinuxProject/selinux/releases/download/$(PKG_VERSION)
+PKG_HASH:=2d97df3eb8466169b389c3660acbb90c54200ac96e452eca9f41a9639f4f238b
 
 PKG_MAINTAINER:=Thomas Petazzoni <thomas.petazzoni@bootlin.com>
 

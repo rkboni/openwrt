@@ -6,12 +6,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=libselinux
-PKG_VERSION:=3.1
-PKG_RELEASE:=3
+PKG_VERSION:=3.3
+PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://github.com/SELinuxProject/selinux/releases/download/20200710
-PKG_HASH:=ea5dcbb4d859e3f999c26a13c630da2f16dff9462e3cc8cb7b458ac157d112e7
+PKG_SOURCE_URL:=https://github.com/SELinuxProject/selinux/releases/download/$(PKG_VERSION)
+PKG_HASH:=acfdee27633d2496508c28727c3d41d3748076f66d42fccde2e6b9f3463a7057
 HOST_BUILD_DEPENDS:=libsepol/host pcre/host
 
 PKG_LICENSE:=libselinux-1.0

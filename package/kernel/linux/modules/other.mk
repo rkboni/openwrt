@@ -182,22 +182,6 @@ endef
 $(eval $(call KernelPackage,eeprom-at25))
 
 
-define KernelPackage/gpio-dev
-  SUBMENU:=$(OTHER_MENU)
-  TITLE:=Generic GPIO char device support
-  DEPENDS:=@GPIO_SUPPORT
-  KCONFIG:=CONFIG_GPIO_DEVICE
-  FILES:=$(LINUX_DIR)/drivers/char/gpio_dev.ko
-  AUTOLOAD:=$(call AutoLoad,40,gpio_dev)
-endef
-
-define KernelPackage/gpio-dev/description
- Kernel module to allows control of GPIO pins using a character device.
-endef
-
-$(eval $(call KernelPackage,gpio-dev))
-
-
 define KernelPackage/gpio-f7188x
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Fintek F718xx/F818xx GPIO Support
@@ -919,7 +903,6 @@ define KernelPackage/zram
 	CONFIG_ZSMALLOC \
 	CONFIG_ZRAM \
 	CONFIG_ZRAM_DEBUG=n \
-	CONFIG_PGTABLE_MAPPING=n \
 	CONFIG_ZRAM_WRITEBACK=n \
 	CONFIG_ZSMALLOC_STAT=n
   FILES:= \
@@ -1009,7 +992,7 @@ $(eval $(call KernelPackage,ptp))
 define KernelPackage/ptp-qoriq
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Freescale QorIQ PTP support
-  DEPENDS:=@TARGET_mpc85xx +kmod-ptp
+  DEPENDS:=@(TARGET_mpc85xx||TARGET_qoriq) +kmod-ptp
   KCONFIG:=CONFIG_PTP_1588_CLOCK_QORIQ
   FILES:=$(LINUX_DIR)/drivers/ptp/ptp-qoriq.ko
   AUTOLOAD:=$(call AutoProbe,ptp-qoriq)
@@ -1039,11 +1022,11 @@ $(eval $(call KernelPackage,random-core))
 
 define KernelPackage/thermal
   SUBMENU:=$(OTHER_MENU)
-  TITLE:=Generic Thermal sysfs driver
+  TITLE:=Thermal driver
   DEPENDS:=+kmod-hwmon-core
   HIDDEN:=1
   KCONFIG:= \
-	CONFIG_THERMAL \
+	CONFIG_THERMAL=y \
 	CONFIG_THERMAL_OF=y \
 	CONFIG_CPU_THERMAL=y \
 	CONFIG_THERMAL_DEFAULT_GOV_STEP_WISE=y \
@@ -1055,14 +1038,11 @@ define KernelPackage/thermal
 	CONFIG_THERMAL_GOV_USER_SPACE=n \
 	CONFIG_THERMAL_HWMON=y \
 	CONFIG_THERMAL_EMULATION=n
-  FILES:=$(LINUX_DIR)/drivers/thermal/thermal_sys.ko
-  AUTOLOAD:=$(call AutoProbe,thermal_sys)
 endef
 
 define KernelPackage/thermal/description
- Generic Thermal Sysfs driver offers a generic mechanism for thermal
- management. Usually it's made up of one or more thermal zone and cooling
- device.
+ Thermal driver offers a generic mechanism for thermal management.
+ Usually it's made up of one or more thermal zone and cooling device.
 endef
 
 $(eval $(call KernelPackage,thermal))
@@ -1129,7 +1109,9 @@ define KernelPackage/keys-trusted
   TITLE:=TPM trusted keys on kernel keyring
   DEPENDS:=@KERNEL_KEYS +kmod-crypto-hash +kmod-crypto-hmac +kmod-crypto-sha1 +kmod-tpm
   KCONFIG:=CONFIG_TRUSTED_KEYS
-  FILES:=$(LINUX_DIR)/security/keys/trusted.ko
+  FILES:= \
+	  $(LINUX_DIR)/security/keys/trusted.ko@lt5.10 \
+	  $(LINUX_DIR)/security/keys/trusted-keys/trusted.ko@ge5.10
   AUTOLOAD:=$(call AutoLoad,01,trusted-keys,1)
 endef
 

@@ -14,7 +14,6 @@
 		led-failsafe = &led_user;
 		led-running = &led_user;
 		led-upgrade = &led_user;
-		serial0 = &uart;
 	};
 
 	leds {
@@ -100,7 +99,6 @@
 			partition@0 {
 				label = "RouterBoot";
 				reg = <0x0 0x20000>;
-				read-only;
 				compatible = "mikrotik,routerboot-partitions";
 				#address-cells = <1>;
 				#size-cells = <1>;
@@ -161,10 +159,6 @@
 			reg = <0x0400000 0x7c00000>;
 		};
 	};
-};
-
-&uart {
-	status = "okay";
 };
 
 &eth0 {

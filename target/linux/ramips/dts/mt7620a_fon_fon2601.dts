@@ -83,7 +83,8 @@
 			};
 
 			partition@50000 {
-				compatible = "fonfxc,uimage";
+				compatible = "openwrt,uimage", "denx,uimage";
+				openwrt,padding = <32>;
 				label = "firmware";
 				reg = <0x50000 0xf90000>;
 			};
@@ -116,7 +117,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&rgmii2_pins &mdio_pins>;
 
-	mtd-mac-address = <&factory 0x4>;
+	nvmem-cells = <&macaddr_factory_4>;
+	nvmem-cell-names = "mac-address";
 
 	port@4 {
 		status = "okay";
@@ -135,7 +137,8 @@
 };
 
 &gsw {
-	mediatek,port4 = "gmac";
+	mediatek,port4-gmac;
+	mediatek,ephy-base = /bits/ 8 <8>;
 };
 
 &wmac {
@@ -162,4 +165,14 @@
 
 &ohci {
 	status = "okay";
+};
+
+&factory {
+	compatible = "nvmem-cells";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	macaddr_factory_4: macaddr@4 {
+		reg = <0x4 0x6>;
+	};
 };

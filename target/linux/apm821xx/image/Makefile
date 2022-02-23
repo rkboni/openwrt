@@ -1,7 +1,5 @@
-#
-# This is free software, licensed under the GNU General Public License v2.
-# See /LICENSE for more information.
-#
+# SPDX-License-Identifier: GPL-2.0-only
+
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
@@ -28,10 +26,6 @@ define Build/boot-script
 	$(STAGING_DIR_HOST)/bin/mkimage -A powerpc -T script -C none -n "$(PROFILE) Boot Script" \
 		-d mbl_boot.scr \
 		$@.scr
-endef
-
-define Build/copy-file
-	cat "$(1)" > "$@"
 endef
 
 define Build/dtb
@@ -88,7 +82,6 @@ define Device/Default
   KERNEL_LOADADDR := 0x00000000
   DEVICE_DTS_DIR := ../dts
   DEVICE_DTS = $(subst _,-,$(1))
-  SUPPORTED_DEVICES = $(subst _,$(comma),$(1))
 endef
 
 include $(SUBTARGET).mk

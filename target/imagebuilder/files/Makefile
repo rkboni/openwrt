@@ -54,6 +54,7 @@ Print manifest:
 
 	make manifest PROFILE="<profilename>" # override the default target profile
 	make manifest PACKAGES="<pkg1> [<pkg2> [<pkg3> ...]]" # include extra packages
+	make manifest STRIP_ABI=1 # remove ABI version from printed package names
 
 endef
 $(eval $(call shexport,Helptext))
@@ -101,6 +102,7 @@ staging_dir/host/.prereq-build: include/prereq-build.mk
 
 _call_info: FORCE
 	echo 'Current Target: "$(TARGETID)"'
+	echo 'Current Architecture: "$(ARCH)"'
 	echo 'Current Revision: "$(REVISION)"'
 	echo 'Default Packages: $(DEFAULT_PACKAGES)'
 	echo 'Available Profiles:'
@@ -129,7 +131,7 @@ _call_manifest: FORCE
 	mkdir -p $(TARGET_DIR) $(BIN_DIR) $(TMP_DIR) $(DL_DIR)
 	$(MAKE) package_reload >/dev/null
 	$(MAKE) package_install >/dev/null
-	$(OPKG) list-installed
+	$(OPKG) list-installed $(if $(STRIP_ABI),--strip-abi)
 
 package_index: FORCE
 	@echo >&2

@@ -1,10 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 #
 # Copyright (C) 2006-2010 OpenWrt.org
 # Copyright (C) 2016 LEDE Project
-#
-# This is free software, licensed under the GNU General Public License v2.
-# See /LICENSE for more information.
-#
 
 ifneq ($(__rules_inc),1)
 __rules_inc=1
@@ -30,7 +27,7 @@ empty:=
 space:= $(empty) $(empty)
 comma:=,
 merge=$(subst $(space),,$(1))
-confvar=$(shell echo '$(foreach v,$(1),$(v)=$(subst ','\'',$($(v))))' | $(STAGING_DIR_HOST)/bin/mkhash md5)
+confvar=$(shell echo '$(foreach v,$(1),$(v)=$(subst ','\'',$($(v))))' | $(MKHASH) md5)
 strip_last=$(patsubst %.$(lastword $(subst .,$(space),$(1))),%,$(1))
 
 paren_left = (
@@ -78,12 +75,12 @@ IS_PACKAGE_BUILD := $(if $(filter package/%,$(BUILD_SUBDIR)),1)
 OPTIMIZE_FOR_CPU=$(subst i386,i486,$(ARCH))
 
 ifneq (,$(findstring $(ARCH) , aarch64 aarch64_be powerpc ))
-  FPIC:=-fPIC
+  FPIC:=-DPIC -fPIC
 else
-  FPIC:=-fpic
+  FPIC:=-DPIC -fpic
 endif
 
-HOST_FPIC:=-fPIC
+HOST_FPIC:=-DPIC -fPIC
 
 ARCH_SUFFIX:=$(call qstrip,$(CONFIG_CPU_TYPE))
 GCC_ARCH:=
@@ -141,11 +138,7 @@ else
 endif
 
 ifeq ($(or $(CONFIG_EXTERNAL_TOOLCHAIN),$(CONFIG_TARGET_uml)),)
-  ifeq ($(CONFIG_GCC_USE_IREMAP),y)
-    iremap = -iremap$(1):$(2)
-  else
-    iremap = -f$(if $(CONFIG_REPRODUCIBLE_DEBUG_INFO),file,macro)-prefix-map=$(1)=$(2)
-  endif
+  iremap = -f$(if $(CONFIG_REPRODUCIBLE_DEBUG_INFO),file,macro)-prefix-map=$(1)=$(2)
 endif
 
 PACKAGE_DIR:=$(BIN_DIR)/packages
@@ -247,6 +240,7 @@ export PKG_CONFIG
 HOSTCC:=gcc
 HOSTCXX:=g++
 HOST_CPPFLAGS:=-I$(STAGING_DIR_HOST)/include $(if $(IS_PACKAGE_BUILD),-I$(STAGING_DIR_HOSTPKG)/include -I$(STAGING_DIR)/host/include)
+HOST_CXXFLAGS:=
 HOST_CFLAGS:=-O2 $(HOST_CPPFLAGS)
 HOST_LDFLAGS:=-L$(STAGING_DIR_HOST)/lib $(if $(IS_PACKAGE_BUILD),-L$(STAGING_DIR_HOSTPKG)/lib -L$(STAGING_DIR)/host/lib)
 
@@ -269,6 +263,9 @@ TARGET_CXX:=$(TARGET_CROSS)g++
 KPATCH:=$(SCRIPT_DIR)/patch-kernel.sh
 SED:=$(STAGING_DIR_HOST)/bin/sed -i -e
 ESED:=$(STAGING_DIR_HOST)/bin/sed -E -i -e
+MKHASH:=$(STAGING_DIR_HOST)/bin/mkhash
+# MKHASH is used in /scripts, so we export it here.
+export MKHASH
 CP:=cp -fpR
 LN:=ln -sf
 XARGS:=xargs -r
@@ -277,7 +274,7 @@ BASH:=bash
 TAR:=tar
 FIND:=find
 PATCH:=patch
-PYTHON:=python
+PYTHON:=python3
 
 INSTALL_BIN:=install -m0755
 INSTALL_SUID:=install -m4755
@@ -342,6 +339,12 @@ else
     $(SCRIPT_DIR)/rstrip.sh
 endif
 
+NINJA = \
+	MAKEFLAGS="$(MAKE_JOBSERVER)" \
+	$(STAGING_DIR_HOST)/bin/ninja \
+		$(if $(findstring c,$(OPENWRT_VERBOSE)),-v) \
+		$(if $(MAKE_JOBSERVER),,-j1)
+
 ifeq ($(CONFIG_IPV6),y)
   DISABLE_IPV6:=
 else
@@ -402,11 +405,39 @@ endef
 # $(2) => If set, recurse into subdirectories
 define sha256sums
 	(cd $(1); find . $(if $(2),,-maxdepth 1) -type f -not -name 'sha256sums' -printf "%P\n" | sort | \
-		xargs -r $(STAGING_DIR_HOST)/bin/mkhash -n sha256 | sed -ne 's!^\(.*\) \(.*\)$$!\1 *\2!p' > sha256sums)
+		xargs -r $(MKHASH) -n sha256 | sed -ne 's!^\(.*\) \(.*\)$$!\1 *\2!p' > sha256sums)
 endef
 
 # file extension
 ext=$(word $(words $(subst ., ,$(1))),$(subst ., ,$(1)))
+
+# Count Git commits of a package
+# $(1) => if non-empty: count commits since last ": [uU]pdate to " or ": [bB]ump to " in commit message
+define commitcount
+$(shell \
+  if git log -1 >/dev/null 2>/dev/null; then \
+    if [ -n "$(1)" ]; then \
+      last_bump="$$(git log --pretty=format:'%h %s' . | \
+        grep --max-count=1 -e ': [uU]pdate to ' -e ': [bB]ump to ' | \
+        cut -f 1 -d ' ')"; \
+    fi; \
+    if [ -n "$$last_bump" ]; then \
+      echo -n $$(($$(git rev-list --count "$$last_bump..HEAD" .) + 1)); \
+    else \
+      git rev-list --count HEAD .; \
+    fi; \
+  else \
+    secs="$$(($(SOURCE_DATE_EPOCH) % 86400))"; \
+    date="$$(date --utc --date="@$(SOURCE_DATE_EPOCH)" "+%y%m%d")"; \
+    printf '%s.%05d' "$$date" "$$secs"; \
+  fi; \
+)
+endef
+
+abi_version_str = $(subst -,,$(subst _,,$(subst .,,$(1))))
+
+COMMITCOUNT = $(if $(DUMP),0,$(call commitcount))
+AUTORELEASE = $(if $(DUMP),0,$(call commitcount,1))
 
 all:
 FORCE: ;
