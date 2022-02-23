@@ -47,9 +47,33 @@ platform_do_upgrade() {
 	adtran,bsap1840)
 		redboot_fis_do_upgrade "$1" vmlinux_2
 		;;
+	allnet,all-wap02860ac|\
+	engenius,eap1200h|\
+	engenius,eap300-v2|\
+	engenius,eap600|\
+	engenius,ecb600|\
+	engenius,ens202ext-v1|\
+	engenius,enstationac-v1)
+		IMAGE_LIST="tar tzf $1"
+		IMAGE_CMD="tar xzOf $1"
+		KERNEL_PART="loader"
+		ROOTFS_PART="fwconcat0"
+		KERNEL_FILE="uImage-lzma.bin"
+		ROOTFS_FILE="root.squashfs"
+		platform_do_upgrade_failsafe_datachk "$1"
+		;;
 	jjplus,ja76pf2)
 		redboot_fis_do_upgrade "$1" linux
 		;;
+	openmesh,a40|\
+	openmesh,a60|\
+	openmesh,mr600-v1|\
+	openmesh,mr600-v2|\
+	openmesh,mr900-v1|\
+	openmesh,mr900-v2|\
+	openmesh,mr1750-v1|\
+	openmesh,mr1750-v2|\
+	openmesh,om2p-v1|\
 	openmesh,om2p-v2|\
 	openmesh,om2p-v4|\
 	openmesh,om2p-hs-v1|\
@@ -57,7 +81,10 @@ platform_do_upgrade() {
 	openmesh,om2p-hs-v3|\
 	openmesh,om2p-hs-v4|\
 	openmesh,om2p-lc|\
-	openmesh,om5p)
+	openmesh,om5p|\
+	openmesh,om5p-ac-v1|\
+	openmesh,om5p-ac-v2|\
+	openmesh,om5p-an)
 		PART_NAME="inactive"
 		platform_do_upgrade_openmesh "$1"
 		;;

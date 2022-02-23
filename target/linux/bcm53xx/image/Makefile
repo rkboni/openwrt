@@ -1,9 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 #
 # Copyright (C) 2013 OpenWrt.org
-#
-# This is free software, licensed under the GNU General Public License v2.
-# See /LICENSE for more information.
-#
+
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
@@ -132,7 +130,7 @@ define Device/Default
   KERNEL_INITRAMFS := kernel-bin | append-dtb | lzma-d16 | trx
   FILESYSTEMS := squashfs
   KERNEL_NAME := zImage
-  IMAGE_NAME = $$(IMAGE_PREFIX)-$$(1).$$(2)
+  DEVICE_IMG_NAME = $$(DEVICE_IMG_PREFIX)-$$(1).$$(2)
   IMAGES := trx
   BLOCKSIZE := 128k
   PAGESIZE := 2048
@@ -220,6 +218,7 @@ define Device/buffalo_wzr-900dhp
 	buffalo-enc WZR-900DHP2 $$(BUFFALO_TAG_VERSION) | \
 	buffalo-tag-dhp WZR-900DHP2 JP jp | buffalo-enc-tag | \
 	buffalo-dhp-image
+  BROKEN := y
 endef
 TARGET_DEVICES += buffalo_wzr-900dhp
 
@@ -244,13 +243,11 @@ define Device/dlink_dir-885l
 endef
 TARGET_DEVICES += dlink_dir-885l
 
-# Linksys devices are disabled due to problem with 2 TRX partitions
 define Device/linksys_ea6300-v1
   DEVICE_VENDOR := Linksys
   DEVICE_MODEL := EA6300
   DEVICE_VARIANT := v1
   DEVICE_PACKAGES := $(B43) $(USB3_PACKAGES)
-  BROKEN := y
 endef
 TARGET_DEVICES += linksys_ea6300-v1
 
@@ -267,7 +264,6 @@ define Device/linksys_ea9200
   DEVICE_MODEL := EA9200
   DEVICE_VARIANT := v1
   DEVICE_PACKAGES := $(BRCMFMAC_43602A1) $(USB3_PACKAGES)
-  BROKEN := y
 endef
 TARGET_DEVICES += linksys_ea9200
 
@@ -276,7 +272,6 @@ define Device/linksys_ea9500
   DEVICE_MODEL := EA9500
   DEVICE_PACKAGES := $(BRCMFMAC_4366C0) $(USB3_PACKAGES)
   DEVICE_DTS := bcm47094-linksys-panamera
-  BROKEN := y
 endef
 TARGET_DEVICES += linksys_ea9500
 
@@ -323,7 +318,7 @@ TARGET_DEVICES += luxul_xwr-3150
 define Device/meraki_mr32
   DEVICE_VENDOR := Meraki
   DEVICE_MODEL := MR32
-  DEVICE_PACKAGES := $(B43) kmod-i2c-bcm-iproc kmod-i2c-gpio kmod-eeprom-at24 \
+  DEVICE_PACKAGES := $(B43) kmod-i2c-bcm-iproc kmod-eeprom-at24 \
 	kmod-leds-pwm kmod-hwmon-ina2xx kmod-bluetooth
   DEVICE_DTS := bcm53016-meraki-mr32
 # Meraki FW r23 tries to resize the part.safe partition before it will
@@ -331,14 +326,14 @@ define Device/meraki_mr32
 # if the partition is smaller than the old one.
   KERNEL_LOADADDR := 0x00008000
   KERNEL_INITRAMFS_SUFFIX := .bin
+  DEVICE_DTS_DELIMITER := @
+  DEVICE_DTS_CONFIG := config@1
   KERNEL_INITRAMFS := kernel-bin | fit none $$(DTS_DIR)/$$(DEVICE_DTS).dtb | \
 	pad-to 10362880
   KERNEL := kernel-bin | fit none $$(DTS_DIR)/$$(DEVICE_DTS).dtb
-  IMAGES := sysupgrade.bin
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-
+  IMAGES += sysupgrade.bin
 # Currently the only device that uses the new image check
-  SUPPORTED_DEVICES := meraki,mr32
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 
 # The loader is specifically looking for fdt@2:
 # [    3.190000] find_itb_subimage: error finding fdt@2: FDT_ERR_NOTFOUND
@@ -442,7 +437,7 @@ define Device/tplink_archer-c5-v2
   TPLINK_BOARD := ARCHER-C5-V2
   BROKEN := y
 endef
-TARGET_DEVICES += tplink_archer-c5-v2
+#TARGET_DEVICES += tplink_archer-c5-v2
 
 define Device/tplink_archer-c9-v1
   DEVICE_VENDOR := TP-Link
@@ -454,6 +449,6 @@ define Device/tplink_archer-c9-v1
   TPLINK_BOARD := ARCHERC9
   BROKEN := y
 endef
-TARGET_DEVICES += tplink_archer-c9-v1
+#TARGET_DEVICES += tplink_archer-c9-v1
 
 $(eval $(call BuildImage))

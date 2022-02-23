@@ -1,3 +1,11 @@
+define Device/globalscale_mochabin
+  $(call Device/Default-arm64)
+  DEVICE_VENDOR := Globalscale
+  DEVICE_MODEL := MOCHAbin
+  SOC := armada-7040
+endef
+TARGET_DEVICES += globalscale_mochabin
+
 define Device/marvell_armada7040-db
   $(call Device/Default-arm64)
   DEVICE_VENDOR := Marvell
@@ -38,8 +46,26 @@ define Device/marvell_macchiatobin-singleshot
   DEVICE_ALT0_VENDOR := SolidRun
   DEVICE_ALT0_MODEL := Armada 8040 Community Board
   DEVICE_ALT0_VARIANT := Single Shot
-  DEVICE_PACKAGES += kmod-i2c-mux-pca954x kmod-ledtrig-heartbeat
+  DEVICE_PACKAGES += kmod-i2c-mux-pca954x
   DEVICE_DTS := armada-8040-mcbin-singleshot
   SUPPORTED_DEVICES := marvell,armada8040-mcbin-singleshot
 endef
 TARGET_DEVICES += marvell_macchiatobin-singleshot
+
+define Device/iei_puzzle-m901
+  $(call Device/Default-arm64)
+  DEVICE_VENDOR := iEi
+  DEVICE_MODEL := Puzzle-M901
+  SOC := cn9131
+  IMAGE/sdcard.img.gz := boot-img-ext4 | sdcard-img-ext4 | gzip | append-metadata
+endef
+TARGET_DEVICES += iei_puzzle-m901
+
+define Device/iei_puzzle-m902
+  $(call Device/Default-arm64)
+  DEVICE_VENDOR := iEi
+  DEVICE_MODEL := Puzzle-M902
+  SOC := cn9132
+  IMAGE/sdcard.img.gz := boot-img-ext4 | sdcard-img-ext4 | gzip | append-metadata
+endef
+TARGET_DEVICES += iei_puzzle-m902

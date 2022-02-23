@@ -8,10 +8,10 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
-PKG_VERSION:=2020.10
-PKG_RELEASE:=1
+PKG_VERSION:=2022.01
+PKG_RELEASE:=$(AUTORELEASE)
 
-PKG_HASH:=0d481bbdc05c0ee74908ec2f56a6daa53166cc6a78a0e4fac2ac5d025770a622
+PKG_HASH:=81b4543227db228c03f8a1bf5ddbc813b0bb8f6555ce46064ef721a6fc680413
 
 include $(INCLUDE_DIR)/u-boot.mk
 include $(INCLUDE_DIR)/package.mk
@@ -36,17 +36,18 @@ define U-Boot/helios4
   UBOOT_IMAGE:=u-boot-spl.kwb
 endef
 
+define U-Boot/omnia
+  NAME:=Turris Omnia
+  BUILD_DEVICES:=cznic_turris-omnia
+  BUILD_SUBTARGET:=cortexa9
+  UBOOT_CONFIG:=turris_omnia
+  UBOOT_IMAGE:=u-boot-spl.kwb
+endef
+
 define U-Boot/espressobin
   NAME:=Marvell ESPRESSObin
   BUILD_SUBTARGET:=cortexa53
   UBOOT_CONFIG:=mvebu_espressobin-88f3720
-endef
-
-define U-Boot/espressobin-emmc
-  NAME:=Marvell ESPRESSObin
-  BUILD_SUBTARGET:=cortexa53
-  UBOOT_CONFIG:=mvebu_espressobin-88f3720
-  UBOOT_MAKE_FLAGS+=DEVICE_TREE=armada-3720-espressobin-emmc
 endef
 
 define U-Boot/uDPU
@@ -57,11 +58,9 @@ endef
 UBOOT_TARGETS:= \
 	clearfog \
 	helios4 \
+	omnia \
 	espressobin \
-	espressobin-emmc \
 	uDPU
-
-Build/Exports:=$(Host/Exports)
 
 define Build/Configure
 	# enable additional options beyond <device>_defconfig

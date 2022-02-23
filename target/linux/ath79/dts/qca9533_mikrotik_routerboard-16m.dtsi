@@ -6,6 +6,10 @@
 #include <dt-bindings/input/input.h>
 
 / {
+	aliases {
+		serial0 = &uart;
+	};
+
 	keys {
 		compatible = "gpio-keys";
 
@@ -34,7 +38,6 @@
 			partition@0 {
 				label = "RouterBoot";
 				reg = <0x0 0x20000>;
-				read-only;
 				compatible = "mikrotik,routerboot-partitions";
 				#address-cells = <1>;
 				#size-cells = <1>;
@@ -72,10 +75,6 @@
 			};
 		};
 	};
-};
-
-&uart {
-	status = "okay";
 };
 
 &wmac {

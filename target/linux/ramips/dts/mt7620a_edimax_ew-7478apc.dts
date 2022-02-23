@@ -4,6 +4,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/mtd/partitions/uimage.h>
 
 / {
 	compatible = "edimax,ew-7478apc", "ralink,mt7620a-soc";
@@ -102,7 +103,9 @@
 			};
 
 			partition@70000 {
-				compatible = "edimax,uimage";
+				compatible = "openwrt,uimage", "denx,uimage";
+				openwrt,offset = <FW_EDIMAX_OFFSET>;
+				openwrt,partition-magic = <FW_MAGIC_EDIMAX>;
 				label = "firmware";
 				reg = <0x00070000 0x00790000>;
 			};
@@ -121,7 +124,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&rgmii1_pins &rgmii2_pins &mdio_pins>;
 
-	mtd-mac-address = <&factory 0x4>;
+	nvmem-cells = <&macaddr_factory_4>;
+	nvmem-cell-names = "mac-address";
 
 	mediatek,portmap = "wllll";
 
@@ -167,7 +171,7 @@
 };
 
 &gsw {
-	mediatek,port4 = "gmac";
+	mediatek,ephy-base = /bits/ 8 <12>;
 };
 
 &wmac {
@@ -192,4 +196,14 @@
 
 &ohci {
 	status = "okay";
+};
+
+&factory {
+	compatible = "nvmem-cells";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	macaddr_factory_4: macaddr@4 {
+		reg = <0x4 0x6>;
+	};
 };
