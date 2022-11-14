@@ -8,6 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=arm-trusted-firmware-sunxi
+PKG_CPE_ID:=cpe:/o:arm:arm_trusted_firmware
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
@@ -21,6 +22,7 @@ PKG_LICENSE_FILES:=license.md
 
 PKG_MAINTAINER:=Hauke Mehrtens <hauke@hauke-m.de>
 
+include $(INCLUDE_DIR)/kernel.mk
 include $(INCLUDE_DIR)/trusted-firmware-a.mk
 include $(INCLUDE_DIR)/package.mk
 
