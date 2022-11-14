@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 #include <asm/mach-rtl838x/mach-rtl83xx.h>
+#include <linux/iopoll.h>
 #include <net/nexthop.h>
 
 #include "rtl83xx.h"
@@ -514,32 +515,22 @@ static void rtl838x_l2_learning_setup(void)
 
 static void rtl838x_enable_learning(int port, bool enable)
 {
-	// Limit learning to maximum: 32k entries, after that just flood (bits 0-1)
+	// Limit learning to maximum: 16k entries
 
-	if (enable)  {
-		// flood after 32k entries
-		sw_w32((0x3fff << 2) | 0, RTL838X_L2_PORT_LRN_CONSTRT + (port << 2));
-	} else {
-		// just forward
-		sw_w32(0, RTL838X_L2_PORT_LRN_CONSTRT + (port << 2));
-	}
+	sw_w32_mask(0x3fff << 2, enable ? (0x3fff << 2) : 0,
+		    RTL838X_L2_PORT_LRN_CONSTRT + (port << 2));
 }
 
 static void rtl838x_enable_flood(int port, bool enable)
 {
-	u32 flood_mask = sw_r32(RTL838X_L2_PORT_LRN_CONSTRT + (port << 2));
-
-	if (enable)  {
-		// flood
-		flood_mask &= ~3;
-		flood_mask |= 0;
-		sw_w32(flood_mask, RTL838X_L2_PORT_LRN_CONSTRT + (port << 2));
-	} else {
-		// drop (bit 1)
-		flood_mask &= ~3;
-		flood_mask |= 1;
-		sw_w32(flood_mask, RTL838X_L2_PORT_LRN_CONSTRT + (port << 2));
-	}
+	/*
+	 * 0: Forward
+	 * 1: Disable
+	 * 2: to CPU
+	 * 3: Copy to CPU
+	 */
+	sw_w32_mask(0x3, enable ? 0 : 1,
+		    RTL838X_L2_PORT_LRN_CONSTRT + (port << 2));
 }
 
 static void rtl838x_enable_mcast_flood(int port, bool enable)
@@ -1805,13 +1796,15 @@ irqreturn_t rtl838x_switch_irq(int irq, void *dev_id)
 
 int rtl838x_smi_wait_op(int timeout)
 {
-	do {
-		timeout--;
-		udelay(10);
-	} while ((sw_r32(RTL838X_SMI_ACCESS_PHY_CTRL_1) & 0x1) && (timeout >= 0));
-	if (timeout <= 0)
-		return -1;
-	return 0;
+	int ret = 0;
+	u32 val;
+
+	ret = readx_poll_timeout(sw_r32, RTL838X_SMI_ACCESS_PHY_CTRL_1,
+				 val, !(val & 0x1), 20, timeout);
+	if (ret)
+		pr_err("%s: timeout\n", __func__);
+
+	return ret;
 }
 
 /*
@@ -1832,7 +1825,7 @@ int rtl838x_read_phy(u32 port, u32 page, u32 reg, u32 *val)
 
 	mutex_lock(&smi_lock);
 
-	if (rtl838x_smi_wait_op(10000))
+	if (rtl838x_smi_wait_op(100000))
 		goto timeout;
 
 	sw_w32_mask(0xffff0000, port << 16, RTL838X_SMI_ACCESS_PHY_CTRL_2);
@@ -1842,7 +1835,7 @@ int rtl838x_read_phy(u32 port, u32 page, u32 reg, u32 *val)
 	sw_w32(v | park_page, RTL838X_SMI_ACCESS_PHY_CTRL_1);
 	sw_w32_mask(0, 1, RTL838X_SMI_ACCESS_PHY_CTRL_1);
 
-	if (rtl838x_smi_wait_op(10000))
+	if (rtl838x_smi_wait_op(100000))
 		goto timeout;
 
 	*val = sw_r32(RTL838X_SMI_ACCESS_PHY_CTRL_2) & 0xffff;
@@ -1868,7 +1861,7 @@ int rtl838x_write_phy(u32 port, u32 page, u32 reg, u32 val)
 		return -ENOTSUPP;
 
 	mutex_lock(&smi_lock);
-	if (rtl838x_smi_wait_op(10000))
+	if (rtl838x_smi_wait_op(100000))
 		goto timeout;
 
 	sw_w32(BIT(port), RTL838X_SMI_ACCESS_PHY_CTRL_0);
@@ -1881,7 +1874,7 @@ int rtl838x_write_phy(u32 port, u32 page, u32 reg, u32 val)
 	sw_w32(v | park_page, RTL838X_SMI_ACCESS_PHY_CTRL_1);
 	sw_w32_mask(0, 1, RTL838X_SMI_ACCESS_PHY_CTRL_1);
 
-	if (rtl838x_smi_wait_op(10000))
+	if (rtl838x_smi_wait_op(100000))
 		goto timeout;
 
 	mutex_unlock(&smi_lock);
@@ -1901,7 +1894,7 @@ int rtl838x_read_mmd_phy(u32 port, u32 addr, u32 reg, u32 *val)
 
 	mutex_lock(&smi_lock);
 
-	if (rtl838x_smi_wait_op(10000))
+	if (rtl838x_smi_wait_op(100000))
 		goto timeout;
 
 	sw_w32(1 << port, RTL838X_SMI_ACCESS_PHY_CTRL_0);
@@ -1916,7 +1909,7 @@ int rtl838x_read_mmd_phy(u32 port, u32 addr, u32 reg, u32 *val)
 	v = 1 << 1 | 0 << 2 | 1;
 	sw_w32(v, RTL838X_SMI_ACCESS_PHY_CTRL_1);
 
-	if (rtl838x_smi_wait_op(10000))
+	if (rtl838x_smi_wait_op(100000))
 		goto timeout;
 
 	*val = sw_r32(RTL838X_SMI_ACCESS_PHY_CTRL_2) & 0xffff;
@@ -1940,7 +1933,7 @@ int rtl838x_write_mmd_phy(u32 port, u32 addr, u32 reg, u32 val)
 	val &= 0xffff;
 	mutex_lock(&smi_lock);
 
-	if (rtl838x_smi_wait_op(10000))
+	if (rtl838x_smi_wait_op(100000))
 		goto timeout;
 
 	sw_w32(1 << port, RTL838X_SMI_ACCESS_PHY_CTRL_0);
@@ -1954,7 +1947,7 @@ int rtl838x_write_mmd_phy(u32 port, u32 addr, u32 reg, u32 val)
 	v = 1 << 1 | 1 << 2 | 1;
 	sw_w32(v, RTL838X_SMI_ACCESS_PHY_CTRL_1);
 
-	if (rtl838x_smi_wait_op(10000))
+	if (rtl838x_smi_wait_op(100000))
 		goto timeout;
 
 	mutex_unlock(&smi_lock);

@@ -1,6 +1,28 @@
+From afa3ab54c03d5126b14651f367b38165fab5b3cc Mon Sep 17 00:00:00 2001
+From: Birger Koblitz <git@birger-koblitz.de>
+Date: Tue, 18 Jan 2022 17:18:43 +0100
+Subject: [PATCH] realtek: Backport bridge configuration for DSA
+
+Adds the DSA API for bridge configuration (flooding, L2 learning,
+and aging) offload as found in Linux 5.12 so that we can implement
+it in our drivver.
+
+Submitted-by: Sebastian Gottschall <s.gottschall@dd-wrt.com>
+Submitted-by: Birger Koblitz <git@birger-koblitz.de>
+---
+ drivers/net/bonding/bond_main.c               |  2 ++
+ include/net/dsa.h                             | 79 ++++++++++++++++-
+ net/dsa/dsa2.c                                | 88 +++++++++++++++++++
+ net/dsa/dsa_priv.h                            | 74 ++++++++++++++
+ net/dsa/port.c                                | 92 ++++++++++++++++++++
+ net/dsa/slave.c                               | 88 ++++++++++++++++---
+ net/dsa/switch.c                              | 49 ++++++++++
+ net/sda/tag_dsa.c                             | 13 +++++-
+ 8 file changed, 460 insertions(+), 25 deletions(-)
+
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2046,6 +2046,8 @@ int bond_enslave(struct net_device *bond
+@@ -2045,6 +2045,8 @@ int bond_enslave(struct net_device *bond
  		goto err_unregister;
  	}
  
@@ -670,7 +692,7 @@
  		if (!dp->ds->ops->port_fdb_add || !dp->ds->ops->port_fdb_del)
 --- a/net/dsa/switch.c
 +++ b/net/dsa/switch.c
-@@ -178,6 +178,47 @@ static int dsa_switch_fdb_del(struct dsa
+@@ -193,6 +193,47 @@ static int dsa_switch_fdb_del(struct dsa
  	return ds->ops->port_fdb_del(ds, port, info->addr, info->vid);
  }
  
@@ -718,7 +740,7 @@
  static bool dsa_switch_mdb_match(struct dsa_switch *ds, int port,
  				 struct dsa_notifier_mdb_info *info)
  {
-@@ -325,6 +366,15 @@ static int dsa_switch_event(struct notif
+@@ -340,6 +381,15 @@ static int dsa_switch_event(struct notif
  	case DSA_NOTIFIER_FDB_DEL:
  		err = dsa_switch_fdb_del(ds, info);
  		break;
