@@ -127,6 +127,33 @@ get_magic_fat32() {
 	(get_image "$@" | dd bs=1 count=5 skip=82) 2>/dev/null
 }
 
+identify_magic_long() {
+	local magic=$1
+	case "$magic" in
+		"55424923")
+			echo "ubi"
+			;;
+		"31181006")
+			echo "ubifs"
+			;;
+		"68737173")
+			echo "squashfs"
+			;;
+		"d00dfeed")
+			echo "fit"
+			;;
+		"4349"*)
+			echo "combined"
+			;;
+		"1f8b"*)
+			echo "gzip"
+			;;
+		*)
+			echo "unknown $magic"
+			;;
+	esac
+}
+
 part_magic_efi() {
 	local magic=$(get_magic_gpt "$@")
 	[ "$magic" = "EFI PART" ]
@@ -136,6 +163,23 @@ part_magic_fat() {
 	local magic=$(get_magic_vfat "$@")
 	local magic_fat32=$(get_magic_fat32 "$@")
 	[ "$magic" = "FAT" ] || [ "$magic_fat32" = "FAT32" ]
+}
+
+fitblk_get_bootdev() {
+	[ -e /sys/firmware/devicetree/base/chosen/rootdisk ] || return
+
+	local rootdisk="$(cat /sys/firmware/devicetree/base/chosen/rootdisk)"
+	local handle bootdev
+	for handle in /sys/class/block/*/of_node/phandle /sys/class/block/*/device/of_node/phandle; do
+		[ ! -e "$handle" ] && continue
+		if [ "$rootdisk" = "$(cat $handle)" ]; then
+			bootdev="${handle%/of_node/phandle}"
+			bootdev="${bootdev%/device}"
+			bootdev="${bootdev#/sys/class/block/}"
+			echo "$bootdev"
+			break
+		fi
+	done
 }
 
 export_bootdevice() {
@@ -169,6 +213,7 @@ export_bootdevice() {
 			done
 		;;
 		/dev/*)
+			[ "$rootpart" = "/dev/fit0" ] && rootpart="$(fitblk_get_bootdev)"
 			uevent="/sys/class/block/${rootpart##*/}/../uevent"
 		;;
 		0x[a-f0-9][a-f0-9][a-f0-9] | 0x[a-f0-9][a-f0-9][a-f0-9][a-f0-9] | \
@@ -205,7 +250,7 @@ export_partdevice() {
 		while read line; do
 			export -n "$line"
 		done < "$uevent"
-		if [ $BOOTDEV_MAJOR = $MAJOR -a $(($BOOTDEV_MINOR + $offset)) = $MINOR -a -b "/dev/$DEVNAME" ]; then
+		if [ "$BOOTDEV_MAJOR" = "$MAJOR" -a $(($BOOTDEV_MINOR + $offset)) = "$MINOR" -a -b "/dev/$DEVNAME" ]; then
 			export "$var=$DEVNAME"
 			return 0
 		fi

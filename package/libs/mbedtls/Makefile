@@ -8,13 +8,14 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mbedtls
-PKG_VERSION:=2.28.1
-PKG_RELEASE:=$(AUTORELEASE)
-PKG_USE_MIPS16:=0
+PKG_VERSION:=3.6.0
+PKG_RELEASE:=1
+PKG_BUILD_FLAGS:=no-mips16 gc-sections no-lto
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://codeload.github.com/ARMmbed/mbedtls/tar.gz/v$(PKG_VERSION)?
-PKG_HASH:=6797a7b6483ef589deeab8d33d401ed235d7be25eeecda1be8ddfed406d40ff4
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL=https://github.com/Mbed-TLS/mbedtls.git
+PKG_SOURCE_VERSION:=2ca6c285a0dd3f33982dd57299012dacab1ff206
+PKG_MIRROR_HASH:=a684012126590b4e0b6ab41e244cc2af0d2bcfc4b6c94bf42fc37d2d08f0553e
 
 PKG_LICENSE:=GPL-2.0-or-later
 PKG_LICENSE_FILES:=gpl-2.0.txt
@@ -55,12 +56,13 @@ MBEDTLS_BUILD_OPTS_CIPHERS= \
   CONFIG_MBEDTLS_NIST_KW_C \
   CONFIG_MBEDTLS_RIPEMD160_C \
   CONFIG_MBEDTLS_RSA_NO_CRT \
-  CONFIG_MBEDTLS_XTEA_C
+  CONFIG_MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_PSK_ENABLED \
+  CONFIG_MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_EPHEMERAL_ENABLED \
+  CONFIG_MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_PSK_EPHEMERAL_ENABLED
 
 MBEDTLS_BUILD_OPTS= \
   $(MBEDTLS_BUILD_OPTS_CURVES) \
   $(MBEDTLS_BUILD_OPTS_CIPHERS) \
-  CONFIG_MBEDTLS_CERTS_C \
   CONFIG_MBEDTLS_CIPHER_MODE_OFB \
   CONFIG_MBEDTLS_CIPHER_MODE_XTS \
   CONFIG_MBEDTLS_DEBUG_C \
@@ -69,9 +71,15 @@ MBEDTLS_BUILD_OPTS= \
   CONFIG_MBEDTLS_PLATFORM_C \
   CONFIG_MBEDTLS_SELF_TEST \
   CONFIG_MBEDTLS_SSL_RENEGOTIATION \
-  CONFIG_MBEDTLS_SSL_TRUNCATED_HMAC \
+  CONFIG_MBEDTLS_THREADING_C \
+  CONFIG_MBEDTLS_THREADING_PTHREAD \
   CONFIG_MBEDTLS_VERSION_C \
-  CONFIG_MBEDTLS_VERSION_FEATURES
+  CONFIG_MBEDTLS_VERSION_FEATURES \
+  CONFIG_MBEDTLS_PSA_CRYPTO_CLIENT \
+  CONFIG_MBEDTLS_DEPRECATED_WARNING \
+  CONFIG_MBEDTLS_SSL_PROTO_TLS1_2 \
+  CONFIG_MBEDTLS_SSL_PROTO_TLS1_3 \
+  CONFIG_MBEDTLS_SSL_TLS1_3_COMPATIBILITY_MODE
 
 PKG_CONFIG_DEPENDS := $(MBEDTLS_BUILD_OPTS)
 
@@ -94,7 +102,7 @@ $(call Package/mbedtls/Default)
   CATEGORY:=Libraries
   SUBMENU:=SSL
   TITLE+= (library)
-  ABI_VERSION:=12
+  ABI_VERSION:=21
   MENU:=1
 endef
 
@@ -121,7 +129,6 @@ This package contains mbedtls helper programs for private key and
 CSR generation (gen_key, cert_req)
 endef
 
-TARGET_CFLAGS += -ffunction-sections -fdata-sections
 TARGET_CFLAGS := $(filter-out -O%,$(TARGET_CFLAGS))
 
 CMAKE_OPTIONS += \
@@ -130,28 +137,32 @@ CMAKE_OPTIONS += \
 	-DENABLE_TESTING:Bool=OFF \
 	-DENABLE_PROGRAMS:Bool=ON
 
-define Build/Configure
-	$(call Build/Configure/Default)
-
-	sed -i '/fuzz/d' $(PKG_BUILD_DIR)/programs/CMakeLists.txt
-	sed -i '/test/d' $(PKG_BUILD_DIR)/programs/CMakeLists.txt
-endef
-
 define Build/Prepare
        $(call Build/Prepare/Default)
 
-       $(foreach opt,$(MBEDTLS_BUILD_OPTS),
+       $(if $(strip $(foreach opt,$(MBEDTLS_BUILD_OPTS),$($(opt)))),
+	 $(foreach opt,$(MBEDTLS_BUILD_OPTS),
 	 $(PKG_BUILD_DIR)/scripts/config.py \
-	 -f $(PKG_BUILD_DIR)/include/mbedtls/config.h \
-	 $(if $($(opt)),set,unset) $(patsubst CONFIG_%,%,$(opt)))
+	 -f $(PKG_BUILD_DIR)/include/mbedtls/mbedtls_config.h \
+	 $(if $($(opt)),set,unset) $(patsubst CONFIG_%,%,$(opt))),)
 endef
 
 define Build/InstallDev
 	$(INSTALL_DIR) $(1)/usr/include
-	$(CP) $(PKG_INSTALL_DIR)/usr/include/mbedtls $(1)/usr/include/
+	$(CP) \
+		$(PKG_INSTALL_DIR)/usr/include/mbedtls \
+		$(PKG_INSTALL_DIR)/usr/include/psa \
+		$(1)/usr/include/
 	$(INSTALL_DIR) $(1)/usr/lib
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/lib*.so* $(1)/usr/lib/
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/lib*.a $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/cmake $(1)/usr/lib/
+	$(INSTALL_DIR) $(1)/usr/lib/pkgconfig
+	$(CP) \
+		$(PKG_INSTALL_DIR)/usr/lib/pkgconfig/mbedcrypto.pc \
+		$(PKG_INSTALL_DIR)/usr/lib/pkgconfig/mbedtls.pc \
+		$(PKG_INSTALL_DIR)/usr/lib/pkgconfig/mbedx509.pc \
+		$(1)/usr/lib/pkgconfig/
 endef
 
 define Package/libmbedtls/install

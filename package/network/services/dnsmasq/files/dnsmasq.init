@@ -204,8 +204,12 @@ ismounted() {
 	return 1
 }
 
-append_addnhosts() {
+append_extramount() {
 	ismounted "$1" || append EXTRA_MOUNT "$1"
+}
+
+append_addnhosts() {
+	append_extramount "$1"
 	xappend "--addn-hosts=$1"
 }
 
@@ -498,13 +502,12 @@ dhcp_boot_add() {
 
 	[ -n "$serveraddress" ] && [ ! -n "$servername" ] && return 0
 
-	xappend "--dhcp-boot=${networkid:+net:$networkid,}${filename}${servername:+,$servername}${serveraddress:+,$serveraddress}"
+	xappend "--dhcp-boot=${networkid:+tag:$networkid,}${filename}${servername:+,$servername}${serveraddress:+,$serveraddress}"
 
 	config_get_bool force "$cfg" force 0
 
 	dhcp_option_add "$cfg" "$networkid" "$force"
 }
-
 
 dhcp_add() {
 	local cfg="$1"
@@ -536,8 +539,13 @@ dhcp_add() {
 	# Do not support non-static interfaces for now
 	[ static = "$proto" ] || return 0
 
+	ipaddr="${subnet%%/*}"
+	prefix_or_netmask="${subnet##*/}"
+
 	# Override interface netmask with dhcp config if applicable
-	config_get netmask "$cfg" netmask "${subnet##*/}"
+	config_get netmask "$cfg" netmask
+
+	[ -n "$netmask" ] && prefix_or_netmask="$netmask"
 
 	#check for an already active dhcp server on the interface, unless 'force' is set
 	config_get_bool force "$cfg" force 0
@@ -553,6 +561,8 @@ dhcp_add() {
 	config_get leasetime "$cfg" leasetime 12h
 	config_get options "$cfg" options
 	config_get_bool dynamicdhcp "$cfg" dynamicdhcp 1
+	config_get_bool dynamicdhcpv4 "$cfg" dynamicdhcpv4 $dynamicdhcp
+	config_get_bool dynamicdhcpv6 "$cfg" dynamicdhcpv6 $dynamicdhcp
 
 	config_get dhcpv4 "$cfg" dhcpv4
 	config_get dhcpv6 "$cfg" dhcpv6
@@ -561,6 +571,7 @@ dhcp_add() {
 	config_get ra_management "$cfg" ra_management
 	config_get ra_preference "$cfg" ra_preference
 	config_get dns "$cfg" dns
+	config_get dns_sl "$cfg" domain
 
 	config_list_foreach "$cfg" "interface_name" append_interface_name "$ifname"
 
@@ -576,22 +587,17 @@ dhcp_add() {
 
 	nettag="${networkid:+set:${networkid},}"
 
-	if [ "$limit" -gt 0 ] ; then
-		limit=$((limit-1))
+	# make sure the DHCP range is not empty
+	if [ "$dhcpv4" != "disabled" ] && ipcalc "$ipaddr/$prefix_or_netmask" "$start" "$limit" ; then
+		[ "$dynamicdhcpv4" = "0" ] && END="static"
+
+		xappend "--dhcp-range=$tags$nettag$START,$END,$NETMASK,$leasetime${options:+ $options}"
 	fi
 
-	eval "$(ipcalc.sh "${subnet%%/*}" $netmask $start $limit)"
-
-	if [ "$dynamicdhcp" = "0" ] ; then
-		END="static"
+	if [ "$dynamicdhcpv6" = "0" ] ; then
 		dhcp6range="::,static"
 	else
 		dhcp6range="::1000,::ffff"
-	fi
-
-
-	if [ "$dhcpv4" != "disabled" ] ; then
-		xappend "--dhcp-range=$tags$nettag$START,$END,$NETMASK,$leasetime${options:+ $options}"
 	fi
 
 
@@ -645,6 +651,13 @@ dhcp_add() {
 		fi
 
 		dhcp_option_append "option6:dns-server,$dnss" "$networkid"
+
+		if [ -n "$dns_sl" ]; then
+			ddssl=""
+			for dd in $dns_sl; do append ddssl "$dd" ","; done
+		fi
+
+		dhcp_option_append "option6:domain-search,$ddssl" "$networkid"
 	fi
 
 	dhcp_option_add "$cfg" "$networkid" 0
@@ -849,7 +862,7 @@ dnsmasq_start()
 {
 	local cfg="$1"
 	local disabled user_dhcpscript logfacility
-	local resolvfile resolvdir localuse=0
+	local resolvfile resolvdir localuse=1
 
 	config_get_bool disabled "$cfg" disabled 0
 	[ "$disabled" -gt 0 ] && return 0
@@ -1046,7 +1059,7 @@ dnsmasq_start()
 		config_get resolvfile "$cfg" resolvfile /tmp/resolv.conf.d/resolv.conf.auto
 		[ -n "$resolvfile" ] && [ ! -e "$resolvfile" ] && touch "$resolvfile"
 		xappend "--resolv-file=$resolvfile"
-		[ "$resolvfile" = "/tmp/resolv.conf.d/resolv.conf.auto" ] && localuse=1
+		[ "$resolvfile" != "/tmp/resolv.conf.d/resolv.conf.auto" ] && localuse=0
 		resolvdir="$(dirname "$resolvfile")"
 	fi
 	config_get_bool localuse "$cfg" localuse "$localuse"
@@ -1186,6 +1199,8 @@ dnsmasq_start()
 		done
 	}
 
+	config_list_foreach "$cfg" addnmount append_extramount
+
 	procd_open_instance $cfg
 	procd_set_param command $PROG -C $CONFIGFILE -k -x /var/run/dnsmasq/dnsmasq."${cfg}".pid
 	procd_set_param file $CONFIGFILE
@@ -1207,6 +1222,7 @@ dnsmasq_start()
 		[ ! -e "$logfacility" ] && touch "$logfacility"
 		procd_add_jail_mount_rw "$logfacility"
 	esac
+	[ -e "$hostsfile" ] && procd_add_jail_mount $hostsfile
 
 	procd_close_instance
 }
@@ -1214,12 +1230,12 @@ dnsmasq_start()
 dnsmasq_stop()
 {
 	local cfg="$1"
-	local noresolv resolvfile localuse=0
+	local noresolv resolvfile localuse=1
 
 	config_get_bool noresolv "$cfg" noresolv 0
 	config_get resolvfile "$cfg" "resolvfile"
 
-	[ "$noresolv" = 0 ] && [ "$resolvfile" = "/tmp/resolv.conf.d/resolv.conf.auto" ] && localuse=1
+	[ "$noresolv" = 0 ] && [ "$resolvfile" != "/tmp/resolv.conf.d/resolv.conf.auto" ] && localuse=0
 	config_get_bool localuse "$cfg" localuse "$localuse"
 	[ "$localuse" -gt 0 ] && ln -sf "/tmp/resolv.conf.d/resolv.conf.auto" /tmp/resolv.conf
 
@@ -1228,10 +1244,11 @@ dnsmasq_stop()
 
 add_interface_trigger()
 {
-	local interface ignore
+	local interface ifname ignore
 
 	config_get interface "$1" interface
 	config_get_bool ignore "$1" ignore 0
+	network_get_device ifname "$interface" || ignore=0
 
 	[ -n "$interface" ] && [ $ignore -eq 0 ] && procd_add_interface_trigger "interface.*" "$interface" /etc/init.d/dnsmasq reload
 }

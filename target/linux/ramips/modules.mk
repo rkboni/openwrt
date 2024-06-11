@@ -74,19 +74,18 @@ $(eval $(call KernelPackage,i2c-mt7628))
 define KernelPackage/dma-ralink
   SUBMENU:=Other modules
   TITLE:=Ralink GDMA Engine
-  DEPENDS:=@TARGET_ramips
+  DEPENDS:=@TARGET_ramips @!TARGET_ramips_rt288x
   KCONFIG:= \
 	CONFIG_DMADEVICES=y \
-	CONFIG_DW_DMAC_PCI=n \
-	CONFIG_DMA_RALINK
+	CONFIG_RALINK_GDMA
   FILES:= \
 	$(LINUX_DIR)/drivers/dma/virt-dma.ko \
-	$(LINUX_DIR)/drivers/staging/ralink-gdma/ralink-gdma.ko
+	$(LINUX_DIR)/drivers/dma/ralink-gdma.ko
   AUTOLOAD:=$(call AutoLoad,52,ralink-gdma)
 endef
 
 define KernelPackage/dma-ralink/description
- Kernel modules for enable ralink dma engine.
+ Kernel modules for enable ralink gdma engine.
 endef
 
 $(eval $(call KernelPackage,dma-ralink))
@@ -97,11 +96,10 @@ define KernelPackage/hsdma-mtk
   DEPENDS:=@TARGET_ramips @TARGET_ramips_mt7621
   KCONFIG:= \
 	CONFIG_DMADEVICES=y \
-	CONFIG_DW_DMAC_PCI=n \
 	CONFIG_MTK_HSDMA
   FILES:= \
 	$(LINUX_DIR)/drivers/dma/virt-dma.ko \
-	$(LINUX_DIR)/drivers/staging/mt7621-dma/hsdma-mt7621.ko
+	$(LINUX_DIR)/drivers/dma/mediatek/hsdma-mt7621.ko
   AUTOLOAD:=$(call AutoLoad,53,hsdma-mt7621)
 endef
 
@@ -113,18 +111,17 @@ $(eval $(call KernelPackage,hsdma-mtk))
 
 define KernelPackage/sound-mt7620
   TITLE:=MT7620 PCM/I2S Alsa Driver
-  DEPENDS:=@TARGET_ramips +kmod-sound-soc-core +kmod-regmap-i2c +kmod-dma-ralink @!TARGET_ramips_rt288x
+  DEPENDS:=@TARGET_ramips @!TARGET_ramips_rt288x +kmod-dma-ralink \
+	+kmod-sound-soc-core +kmod-sound-soc-wm8960
   KCONFIG:= \
 	CONFIG_SND_RALINK_SOC_I2S \
 	CONFIG_SND_SIMPLE_CARD \
-	CONFIG_SND_SIMPLE_CARD_UTILS \
-	CONFIG_SND_SOC_WM8960
+	CONFIG_SND_SIMPLE_CARD_UTILS
   FILES:= \
 	$(LINUX_DIR)/sound/soc/ralink/snd-soc-ralink-i2s.ko \
 	$(LINUX_DIR)/sound/soc/generic/snd-soc-simple-card.ko \
-	$(LINUX_DIR)/sound/soc/generic/snd-soc-simple-card-utils.ko \
-	$(LINUX_DIR)/sound/soc/codecs/snd-soc-wm8960.ko
-  AUTOLOAD:=$(call AutoLoad,90,snd-soc-wm8960 snd-soc-ralink-i2s snd-soc-simple-card)
+	$(LINUX_DIR)/sound/soc/generic/snd-soc-simple-card-utils.ko
+  AUTOLOAD:=$(call AutoLoad,90,snd-soc-ralink-i2s snd-soc-simple-card)
   $(call AddDepends/sound)
 endef
 

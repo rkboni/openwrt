@@ -33,7 +33,7 @@ BPF_TARGET:=bpf$(if $(CONFIG_BIG_ENDIAN),eb,el)
 BPF_HEADERS_DIR:=$(STAGING_DIR)/bpf-headers
 
 BPF_KERNEL_INCLUDE := \
-	-nostdinc -isystem $(TOOLCHAIN_DIR)/include \
+	-nostdinc $(patsubst %,-isystem %,$(TOOLCHAIN_INC_DIRS)) \
 	-I$(BPF_HEADERS_DIR)/arch/$(BPF_KARCH)/include \
 	-I$(BPF_HEADERS_DIR)/arch/$(BPF_KARCH)/include/asm/mach-generic \
 	-I$(BPF_HEADERS_DIR)/arch/$(BPF_KARCH)/include/generated \
@@ -64,7 +64,7 @@ BPF_CFLAGS := \
 	-O2 -emit-llvm -Xclang -disable-llvm-passes
 
 ifneq ($(CONFIG_HAS_BPF_TOOLCHAIN),)
-ifeq ($(DUMP),)
+ifeq ($(DUMP)$(filter download refresh,$(MAKECMDGOALS)),)
   CLANG_VER:=$(shell $(CLANG) -dM -E - < /dev/null | grep __clang_major__ | cut -d' ' -f3)
   CLANG_VER_VALID:=$(shell [ "$(CLANG_VER)" -ge "$(CLANG_MIN_VER)" ] && echo 1 )
   ifeq ($(CLANG_VER_VALID),)

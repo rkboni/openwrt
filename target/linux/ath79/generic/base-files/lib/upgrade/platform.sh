@@ -36,14 +36,18 @@ platform_do_upgrade() {
 	araknis,an-500-ap-i-ac|\
 	araknis,an-700-ap-i-ac|\
 	engenius,eap1200h|\
+	engenius,eap1750h|\
 	engenius,eap300-v2|\
 	engenius,eap600|\
 	engenius,ecb600|\
+	engenius,ens1750|\
 	engenius,ens202ext-v1|\
 	engenius,enstationac-v1|\
+	engenius,ews660ap|\
 	watchguard,ap100|\
 	watchguard,ap200|\
 	watchguard,ap300)
+		ENV_SCRIPT="/tmp/fw_env"
 		IMAGE_LIST="tar tzf $1"
 		IMAGE_CMD="tar xzOf $1"
 		KERNEL_PART="loader"
@@ -51,6 +55,26 @@ platform_do_upgrade() {
 		KERNEL_FILE="uImage-lzma.bin"
 		ROOTFS_FILE="root.squashfs"
 		platform_do_upgrade_failsafe_datachk "$1"
+		;;
+	fortinet,fap-220-b|\
+	fortinet,fap-221-b)
+		SKIP_HASH="1"
+		ENV_SCRIPT="/dev/null"
+		IMAGE_LIST="tar tzf $1"
+		IMAGE_CMD="tar xzOf $1"
+		KERNEL_PART="loader"
+		ROOTFS_PART="fwconcat0"
+		KERNEL_FILE="uImage-lzma.bin"
+		ROOTFS_FILE="root.squashfs"
+		platform_do_upgrade_failsafe_datachk "$1"
+		;;
+	huawei,ap5030dn)
+		# Store beginning address of the "firmware" partition
+		# as KernelA address and KernelB address, each to BootupA & BootupB
+		# This is the address from which the bootloader will try to load the kernel.
+		echo -n -e "\x9e\x10\x00\x00\x9e\x10\x00\x00" | dd of=$(find_mtd_part BootupA) bs=1 seek=$((0x254)) conv=notrunc
+		echo -n -e "\x9e\x10\x00\x00\x9e\x10\x00\x00" | dd of=$(find_mtd_part BootupB) bs=1 seek=$((0x254)) conv=notrunc
+		default_do_upgrade "$1"
 		;;
 	jjplus,ja76pf2)
 		platform_do_upgrade_redboot_fis "$1" linux

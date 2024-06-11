@@ -8,9 +8,10 @@ ARCH:=arc
 CPU_TYPE:=archs
 BOARD:=archs38
 BOARDNAME:=Synopsys DesignWare ARC HS38
+FEATURES:=source-only
 SUBTARGETS:=generic
 
-KERNEL_PATCHVER:=5.10
+KERNEL_PATCHVER:=6.1
 
 DEVICE_TYPE:=basic
 
