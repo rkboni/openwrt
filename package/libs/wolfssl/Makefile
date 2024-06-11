@@ -8,16 +8,16 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=wolfssl
-PKG_VERSION:=5.5.1-stable
-PKG_RELEASE:=$(AUTORELEASE)
+PKG_VERSION:=5.7.0-stable
+PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://github.com/wolfSSL/wolfssl/archive/v$(PKG_VERSION)
-PKG_HASH:=97339e6956c90e7c881ba5c748dd04f7c30e5dbe0c06da765418c51375a6dee3
+PKG_HASH:=2de93e8af588ee856fe67a6d7fce23fc1b226b74d710b0e3946bc8061f6aa18f
 
 PKG_FIXUP:=libtool libtool-abiver
 PKG_INSTALL:=1
-PKG_USE_MIPS16:=0
+PKG_BUILD_FLAGS:=no-mips16 lto
 PKG_BUILD_PARALLEL:=1
 PKG_LICENSE:=GPL-2.0-or-later
 PKG_LICENSE_FILES:=LICENSING COPYING
@@ -100,8 +100,8 @@ This variant uses AES CPU instructions (Intel AESNI or ARMv8 Crypto Extension)
 endef
 
 define Package/libwolfsslcpu-crypto/config
-    if TARGET_armvirt && PACKAGE_libwolfsslcpu-crypto = y
-	comment "You are about to build libwolfsslcpu-crypto into an armvirt_64 image."
+    if TARGET_armsr && PACKAGE_libwolfsslcpu-crypto = y
+	comment "You are about to build libwolfsslcpu-crypto into an armsr_64 image."
 	comment "Ensure all of your installation targets support the Crypto Extension. "
 	comment "Look for the 'aes' feature in /proc/cpuinfo. This library does not do "
 	comment "run-time detection and will crash if the CPU does not support it.     "
@@ -118,11 +118,8 @@ endef
 TARGET_CFLAGS += \
 	$(FPIC) \
 	-fomit-frame-pointer \
-	-flto \
 	-DFP_MAX_BITS=8192 \
 	$(if $(CONFIG_WOLFSSL_ALT_NAMES),-DWOLFSSL_ALT_NAMES)
-
-TARGET_LDFLAGS += -flto
 
 # --enable-stunnel needed for OpenSSL API compatibility bits
 CONFIGURE_ARGS += \
@@ -151,6 +148,33 @@ CONFIGURE_ARGS += \
 	--$(if $(CONFIG_WOLFSSL_HAS_ECC448),enable,disable)-curve448 \
 	--$(if $(CONFIG_WOLFSSL_HAS_OPENVPN),enable,disable)-openvpn
 
+define Package/libwolfsslcpu-crypto/preinst-aarch64
+#!/bin/sh
+exec >&2
+printf "[libwolfsslcpu-crypto] Checking for Arm v8-A Cryptographic Extension support: "
+if [ -n "$${IPKG_INSTROOT}" ]; then
+    printf "...[offline]... "
+    eval "$$(grep '^DISTRIB_TARGET=' "$${IPKG_INSTROOT}/etc/openwrt_release")"
+    echo "$${DISTRIB_TARGET}" | grep '^bcm27xx/.*' > /dev/null && {
+	echo "not supported"
+	echo "Error: Target $${DISTRIB_TARGET} does not support Arm Cryptographic Extension."
+	echo "Install the regular libwolfssl package instead of libwolfsslcpu-crypto."
+	exit 1
+    }
+else
+    grep -q '^Features.*\baes\b' /proc/cpuinfo || {
+	echo "not supported"
+	echo "Error: Arm v8-A Cryptographic Extension not supported."
+	echo "Install the regular libwolfssl package instead of libwolfsslcpu-crypto."
+	echo "Contents of /proc/cpuinfo:"
+	cat /proc/cpuinfo
+	exit 1
+    }
+fi
+echo OK
+exit 0
+endef
+
 ifeq ($(BUILD_VARIANT),regular)
 CONFIGURE_ARGS += \
 	--$(if $(CONFIG_WOLFSSL_HAS_AFALG),enable,disable)-afalg \
@@ -160,9 +184,7 @@ CONFIGURE_ARGS += \
 else ifdef CONFIG_aarch64
     CONFIGURE_ARGS += --enable-armasm
     TARGET_CFLAGS:=$(TARGET_CFLAGS:-mcpu%=-mcpu%+crypto)
-    WOLFSSL_NOASM_REGEX:=^bcm27xx/.*
-    Package/libwolfsslcpu-crypto/preinst=\
-	$(subst @@WOLFSSL_NOASM_REGEX@@,$(WOLFSSL_NOASM_REGEX),$(file <preinst.arm-ce))
+    Package/libwolfsslcpu-crypto/preinst=$(Package/libwolfsslcpu-crypto/preinst-aarch64)
 else ifdef CONFIG_TARGET_x86_64
 	CONFIGURE_ARGS += --enable-intelasm
 endif

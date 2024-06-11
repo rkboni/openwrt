@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=ltq-vectoring
-PKG_RELEASE:=$(AUTORELEASE)
+PKG_RELEASE:=3
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://gitlab.com/prpl-foundation/intel/ppa_drv.git
 PKG_SOURCE_DATE:=2019-05-20
 PKG_SOURCE_VERSION:=4fa7ac30fcc8ec4eddae9debba5f4230981f469f
-PKG_MIRROR_HASH:=444eb823dd9ddd25453976bf7a3230955e4148b8bf92f35f165ecffee32c4555
+PKG_MIRROR_HASH:=53ae72a929db598202a4e9c3df43b65fa0778cd165c1ec2ddf9361993795b930
 PKG_LICENSE:=GPL-2.0 BSD-2-Clause
 
 MAKE_PATH:=src/vectoring
@@ -51,8 +51,7 @@ define Build/Configure
 endef
 
 define Build/Compile
-	+$(MAKE) $(PKG_JOBS) -C "$(LINUX_DIR)" \
-		$(KERNEL_MAKE_FLAGS) \
+	+$(KERNEL_MAKE) $(PKG_JOBS) \
 		M="$(PKG_BUILD_DIR)/$(MAKE_PATH)" \
 		modules
 endef
