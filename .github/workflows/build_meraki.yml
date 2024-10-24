@@ -34,6 +34,8 @@ jobs:
                   sudo apt-get clean
             - name: Checkout
               uses: actions/checkout@v4
+	      with:
+                ref: ${{ github.event.ref }}
 
             - name: Update feeds
               run:  scripts/feeds update -a && scripts/feeds install -a
