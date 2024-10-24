@@ -1,0 +1,18 @@
+#!/bin/sh
+
+arch=kirkwood
+target=generic
+version=snapshots
+wget https://downloads.openwrt.org/${version}/targets/${arch}/${target}/config.buildinfo -O config.buildinfo
+cat config.buildinfo | grep -v CONFIG_TARGET_DEVICE_ | grep -v CONFIG_TARGET_ALL_PROFILES | grep -v CONFIG_TARGET_MULTI_PROFILE > .config
+echo CONFIG_TARGET_ALL_PROFILES=n >> .config
+echo CONFIG_TARGET_MULTI_PROFILE=y >> .config
+echo CONFIG_TARGET_DEVICE_${arch}_generic_DEVICE_buffalo_linkstation-lswvl=y >> .config
+echo CONFIG_TARGET_DEVICE_PACKAGES_${arch}_generic_DEVICE_buffalo_linkstation-lswvl=\"\" >> .config
+
+#add luci, tcpdump, iperf3 & some kmods
+echo CONFIG_PACKAGE_luci=y >> .config
+echo CONFIG_PACKAGE_iperf3=y >> .config
+echo CONFIG_PACKAGE_tcpdump=y >> .config
+echo CONFIG_PACKAGE_mdio-tools=y >> .config
+make defconfig
