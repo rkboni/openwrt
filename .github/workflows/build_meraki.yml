@@ -53,5 +53,6 @@ jobs:
               uses: ncipollo/release-action@v1
               with:
                 tag: meraki-${{ env.SHA }}
+                commit: ${{ github.event.ref }}
                 artifacts: bin/targets/ipq806x/generic/openwrt-ipq806x-generic-meraki_*
 
