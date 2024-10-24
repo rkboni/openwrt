@@ -54,5 +54,6 @@ jobs:
               with:
                 tag: meraki-${{ env.SHA }}
                 commit: ${{ github.event.ref }}
+                allowUpdates: true
                 artifacts: bin/targets/ipq806x/generic/openwrt-ipq806x-generic-meraki_*
 
