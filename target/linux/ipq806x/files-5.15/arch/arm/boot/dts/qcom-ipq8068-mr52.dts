@@ -114,11 +114,11 @@
 		reg = <0x45>;
 	};
 
-	tlc591xx@49 {
+	tlc591xx@4c {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "ti,tlc59108";
-		reg = <0x49>;
+		reg = <0x4c>;
 
 		red@0 {
 			label = "red:user";
