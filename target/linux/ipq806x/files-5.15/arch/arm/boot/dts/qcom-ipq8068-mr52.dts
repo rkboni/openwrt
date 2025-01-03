@@ -3,6 +3,7 @@
 #include "qcom-ipq8068-cryptid-common.dtsi"
 
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/leds/common.h>
 
 / {
 	model = "Meraki MR52";
@@ -40,7 +41,8 @@
 		pinctrl-names = "default";
 
 		led_power: power {
-			label = "orange:power";
+			function = LED_FUNCTION_POWER;
+			color = <LED_COLOR_ID_ORANGE>;
 			gpios = <&qcom_pinmux 19 GPIO_ACTIVE_HIGH>;
 		};
 
@@ -97,43 +99,21 @@
 	nvmem-cell-names = "mac-address";
 };
 
-&gsbi7 {
+&gsbi2 {
 	status = "okay";
 	qcom,mode = <GSBI_PROT_I2C>;
 };
 
-&gsbi7_i2c {
+&gsbi2_i2c {
 	status = "okay";
 
-	pinctrl-0 = <&i2c_pins>;
+	pinctrl-0 = <&i2c0_pins>;
 	pinctrl-names = "default";
 
 	ina2xx@45 {
 		compatible = "ina219";
 		shunt-resistor = <80000>;
 		reg = <0x45>;
-	};
-
-	tlc591xx@4c {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "ti,tlc59108";
-		reg = <0x4c>;
-
-		red@0 {
-			label = "red:user";
-			reg = <0x0>;
-		};
-
-		green@1 {
-			label = "green:user";
-			reg = <0x1>;
-		};
-
-		blue@2 {
-			label = "blue:user";
-			reg = <0x2>;
-		};
 	};
 
 	eeprom@52 {
@@ -156,11 +136,57 @@
 	};
 };
 
+&gsbi6 {
+	status = "okay";
+	qcom,mode = <GSBI_PROT_I2C>;
+};
+
+&gsbi6_i2c {
+	status = "okay";
+
+	pinctrl-0 = <&i2c1_pins>;
+	pinctrl-names = "default";
+
+/*
+	tlc591xx@49 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ti,tlc59108";
+		reg = <0x49>;
+
+		red@0 {
+			label = "red:user";
+			reg = <0x0>;
+		};
+
+		green@1 {
+			label = "green:user";
+			reg = <0x1>;
+		};
+
+		blue@2 {
+			label = "blue:user";
+			reg = <0x2>;
+		};
+	};
+*/
+};
+
 &qcom_pinmux {
-	i2c_pins: i2c_pins {
+	i2c0_pins: i2c0_pins {
 		mux {
 			pins = "gpio8", "gpio9";
-			function = "gsbi7";
+			function = "gsbi2";
+			drive-strength = <2>;
+			bias-pull-up;
+			input;
+		};
+	};
+
+	i2c1_pins: i2c1_pins {
+		mux {
+			pins = "gpio12", "gpio13";
+			function = "gsbi6";
 			drive-strength = <2>;
 			bias-pull-up;
 			input;
