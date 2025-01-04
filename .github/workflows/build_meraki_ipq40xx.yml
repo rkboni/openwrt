@@ -55,5 +55,5 @@ jobs:
                 tag: meraki-${{ env.SHA }}
                 commit: ${{ github.event.ref }}
                 allowUpdates: true
-                artifacts: bin/targets/ipq40xx/generic/openwrt-ipq40xx-generic-meraki_*
+                artifacts: bin/targets/ipq40xx/generic/openwrt*-ipq40xx-generic-meraki_*
 
