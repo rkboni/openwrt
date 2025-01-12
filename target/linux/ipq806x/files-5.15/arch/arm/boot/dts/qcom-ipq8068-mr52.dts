@@ -99,12 +99,12 @@
 	nvmem-cell-names = "mac-address";
 };
 
-&gsbi2 {
+&gsbi7 {
 	status = "okay";
 	qcom,mode = <GSBI_PROT_I2C>;
 };
 
-&gsbi2_i2c {
+&gsbi7_i2c {
 	status = "okay";
 
 	pinctrl-0 = <&i2c0_pins>;
@@ -114,6 +114,28 @@
 		compatible = "ina219";
 		shunt-resistor = <80000>;
 		reg = <0x45>;
+	};
+
+	tlc591xx@49 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ti,tlc59108";
+		reg = <0x49>;
+
+		red@0 {
+			label = "red:user";
+			reg = <0x0>;
+		};
+
+		green@1 {
+			label = "green:user";
+			reg = <0x1>;
+		};
+
+		blue@2 {
+			label = "blue:user";
+			reg = <0x2>;
+		};
 	};
 
 	eeprom@52 {
@@ -136,47 +158,23 @@
 	};
 };
 
-&gsbi6 {
+&gsbi4 {
 	status = "okay";
 	qcom,mode = <GSBI_PROT_I2C>;
 };
 
-&gsbi6_i2c {
+&gsbi4_i2c {
 	status = "okay";
 
 	pinctrl-0 = <&i2c1_pins>;
 	pinctrl-names = "default";
-
-/*
-	tlc591xx@49 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "ti,tlc59108";
-		reg = <0x49>;
-
-		red@0 {
-			label = "red:user";
-			reg = <0x0>;
-		};
-
-		green@1 {
-			label = "green:user";
-			reg = <0x1>;
-		};
-
-		blue@2 {
-			label = "blue:user";
-			reg = <0x2>;
-		};
-	};
-*/
 };
 
 &qcom_pinmux {
 	i2c0_pins: i2c0_pins {
 		mux {
 			pins = "gpio8", "gpio9";
-			function = "gsbi2";
+			function = "gsbi7";
 			drive-strength = <2>;
 			bias-pull-up;
 			input;
@@ -186,7 +184,7 @@
 	i2c1_pins: i2c1_pins {
 		mux {
 			pins = "gpio12", "gpio13";
-			function = "gsbi6";
+			function = "gsbi4";
 			drive-strength = <2>;
 			bias-pull-up;
 			input;
