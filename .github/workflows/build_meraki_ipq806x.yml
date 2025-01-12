@@ -25,7 +25,7 @@ jobs:
                       git \
                       libncurses-dev \
                       libssl-dev \
-                      python3-distutils \
+                      python3-setuptools \
                       rsync \
                       unzip \
                       zlib1g-dev \
