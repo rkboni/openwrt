@@ -58,7 +58,7 @@ define KernelPackage/bluetooth
 	$(LINUX_DIR)/drivers/bluetooth/btusb.ko \
 	$(LINUX_DIR)/drivers/bluetooth/btintel.ko \
 	$(LINUX_DIR)/drivers/bluetooth/btrtl.ko \
-	$(LINUX_DIR)/drivers/bluetooth/btmtk.ko@ge5.17
+	$(LINUX_DIR)/drivers/bluetooth/btmtk.ko
   AUTOLOAD:=$(call AutoProbe,bluetooth rfcomm bnep hidp hci_uart btusb)
 endef
 
@@ -572,11 +572,24 @@ endef
 $(eval $(call KernelPackage,bcma))
 
 
+define KernelPackage/mfd
+  SUBMENU:=$(OTHER_MENU)
+  TITLE:=Multifunction device drivers
+  HIDDEN:=1
+  KCONFIG:=CONFIG_MFD_CORE
+  FILES:=$(LINUX_DIR)/drivers/mfd/mfd-core.ko
+  AUTOLOAD:=$(call AutoLoad,10,mfd-core)
+endef
+
+$(eval $(call KernelPackage,mfd))
+
+
 define KernelPackage/mtdtests
   SUBMENU:=$(OTHER_MENU)
   TITLE:=MTD subsystem tests
   KCONFIG:=CONFIG_MTD_TESTS
   FILES:=\
+	$(LINUX_DIR)/drivers/mtd/tests/mtd_nandbiterrs.ko \
 	$(LINUX_DIR)/drivers/mtd/tests/mtd_nandecctest.ko \
 	$(LINUX_DIR)/drivers/mtd/tests/mtd_oobtest.ko \
 	$(LINUX_DIR)/drivers/mtd/tests/mtd_pagetest.ko \
@@ -584,6 +597,7 @@ define KernelPackage/mtdtests
 	$(LINUX_DIR)/drivers/mtd/tests/mtd_speedtest.ko \
 	$(LINUX_DIR)/drivers/mtd/tests/mtd_stresstest.ko \
 	$(LINUX_DIR)/drivers/mtd/tests/mtd_subpagetest.ko \
+	$(LINUX_DIR)/drivers/mtd/tests/mtd_test.ko \
 	$(LINUX_DIR)/drivers/mtd/tests/mtd_torturetest.ko
 endef
 
@@ -947,6 +961,7 @@ define KernelPackage/thermal
 	CONFIG_THERMAL=y \
 	CONFIG_THERMAL_OF=y \
 	CONFIG_CPU_THERMAL=y \
+	CONFIG_DEVFREQ_THERMAL=n \
 	CONFIG_THERMAL_DEFAULT_GOV_STEP_WISE=y \
 	CONFIG_THERMAL_DEFAULT_GOV_FAIR_SHARE=n \
 	CONFIG_THERMAL_DEFAULT_GOV_USER_SPACE=n \

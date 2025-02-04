@@ -8,6 +8,10 @@ endif
 
 IPKG_STATE_DIR:=$(TARGET_DIR)/usr/lib/opkg
 
+define description_escape
+$(subst `,\`,$(subst $$,\$$,$(subst ",\",$(subst \,\\,$(1)))))
+endef
+
 # Generates a make statement to return a wildcard for candidate ipkg files
 # 1: package name
 define gen_package_wildcard
@@ -106,6 +110,13 @@ endif
     IDIR_$(1):=$(PKG_BUILD_DIR)/ipkg-$(PKGARCH)/$(1)
     ADIR_$(1):=$(PKG_BUILD_DIR)/apk-$(PKGARCH)/$(1)
     KEEP_$(1):=$(strip $(call Package/$(1)/conffiles))
+    APK_SCRIPTS_$(1):=\
+    --script "post-install:$$(ADIR_$(1))/post-install" \
+    --script "pre-deinstall:$$(ADIR_$(1))/pre-deinstall"
+
+    ifdef Package/$(1)/postrm
+        APK_SCRIPTS_$(1)+=--script "post-deinstall:$$(ADIR_$(1))/postrm"
+    endif
 
     TARGET_VARIANT:=$$(if $(ALL_VARIANTS),$$(if $$(VARIANT),$$(filter-out *,$$(VARIANT)),$(firstword $(ALL_VARIANTS))))
     ifeq ($(BUILD_VARIANT),$$(if $$(TARGET_VARIANT),$$(TARGET_VARIANT),$(BUILD_VARIANT)))
@@ -205,6 +216,8 @@ $(_endef)
 	rm -rf $$(IDIR_$(1))
 ifeq ($$(CONFIG_USE_APK),)
 	$$(call remove_ipkg_files,$(1),$$(call opkg_package_files,$(call gen_package_wildcard,$(1))))
+else
+	$$(call remove_ipkg_files,$(1),$$(call apk_package_files,$(call gen_package_wildcard,$(1))))
 endif
 	mkdir -p $(PACKAGE_DIR) $$(IDIR_$(1)) $(PKG_INFO_DIR)
 	$(call Package/$(1)/install,$$(IDIR_$(1)))
@@ -288,8 +301,8 @@ else
 		echo 'export root="$$$${IPKG_INSTROOT}"'; \
 		echo 'export pkgname="$(1)"'; \
 		echo "add_group_and_user"; \
-		[ ! -f $$(ADIR_$(1))/postinst-pkg ] || cat "$$(ADIR_$(1))/postinst-pkg"; \
 		echo "default_postinst"; \
+		[ ! -f $$(ADIR_$(1))/postinst-pkg ] || sed -z 's/^\s*#!/#!/' "$$(ADIR_$(1))/postinst-pkg"; \
 	) > $$(ADIR_$(1))/post-install;
 
 	( \
@@ -298,26 +311,65 @@ else
 		echo ". \$$$${IPKG_INSTROOT}/lib/functions.sh"; \
 		echo 'export root="$$$${IPKG_INSTROOT}"'; \
 		echo 'export pkgname="$(1)"'; \
-		[ ! -f $$(ADIR_$(1))/prerm-pkg ] || cat "$$(ADIR_$(1))/prerm-pkg"; \
 		echo "default_prerm"; \
+		[ ! -f $$(ADIR_$(1))/prerm-pkg ] || sed -z 's/^\s*#!/#!/' "$$(ADIR_$(1))/prerm-pkg"; \
 	) > $$(ADIR_$(1))/pre-deinstall;
+
+	[ ! -f $$(ADIR_$(1))/postrm ] || sed -zi 's/^\s*#!/#!/' "$$(ADIR_$(1))/postrm";
 
 	if [ -n "$(USERID)" ]; then echo $(USERID) > $$(IDIR_$(1))/lib/apk/packages/$(1).rusers; fi;
 	if [ -n "$(ALTERNATIVES)" ]; then echo $(ALTERNATIVES) > $$(IDIR_$(1))/lib/apk/packages/$(1).alternatives; fi;
 	(cd $$(IDIR_$(1)) && find . -type f,l -printf "/%P\n" > $$(IDIR_$(1))/lib/apk/packages/$(1).list)
-	if [ -f $$(ADIR_$(1))/conffiles ]; then mv $$(ADIR_$(1))/conffiles $$(IDIR_$(1))/lib/apk/packages/$(1).conffiles; fi;
+	# Move conffiles to IDIR and build conffiles_static with csums
+	if [ -f $$(ADIR_$(1))/conffiles ]; then \
+		mv -f $$(ADIR_$(1))/conffiles $$(IDIR_$(1))/lib/apk/packages/$(1).conffiles; \
+		for file in $$$$(cat $$(IDIR_$(1))/lib/apk/packages/$(1).conffiles); do \
+			[ -f $$(IDIR_$(1))/$$$$file ] || continue; \
+			csum=$$$$($(MKHASH) sha256 $$(IDIR_$(1))/$$$$file); \
+			echo $$$$file $$$$csum >> $$(IDIR_$(1))/lib/apk/packages/$(1).conffiles_static; \
+		done; \
+	fi
+
+	# Some package (base-files) manually append stuff to conffiles
+	# Append stuff from it and delete the CONTROL directory since everything else should be migrated
+	if [ -f $$(IDIR_$(1))/CONTROL/conffiles ]; then \
+		echo $$$$(IDIR_$(1))/CONTROL/conffiles >> $$(IDIR_$(1))/lib/apk/packages/$(1).conffiles; \
+		for file in $$$$(cat $$(IDIR_$(1))/CONTROL/conffiles); do \
+			[ -f $$(IDIR_$(1))/$$$$file ] || continue; \
+			csum=$$$$($(MKHASH) sha256 $$(IDIR_$(1))/$$$$file); \
+			echo $$$$file $$$$csum >> $$(IDIR_$(1))/lib/apk/packages/$(1).conffiles_static; \
+		done; \
+		rm -rf $$(IDIR_$(1))/CONTROL/conffiles; \
+	fi
+
+	if [ -z "$$$$(ls -A $$(IDIR_$(1))/CONTROL 2>/dev/null)" ]; then \
+		rm -rf $$(IDIR_$(1))/CONTROL; \
+	else \
+		echo "CONTROL directory $$(IDIR_$(1))/CONTROL is not empty! This is not right and should be checked!" >&2; \
+		exit 1; \
+	fi
 
 	$(FAKEROOT) $(STAGING_DIR_HOST)/bin/apk mkpkg \
 	  --info "name:$(1)$$(ABIV_$(1))" \
 	  --info "version:$(VERSION)" \
-	  --info "description:" \
-	  --info "arch:$(PKGARCH)" \
+	  --info "description:$$(call description_escape,$$(strip $$(Package/$(1)/description)))" \
+	  $(if $(findstring all,$(PKGARCH)),--info "arch:noarch",--info "arch:$(PKGARCH)") \
 	  --info "license:$(LICENSE)" \
 	  --info "origin:$(SOURCE)" \
-	  --info "provides:$$(foreach prov,$$(filter-out $(1)$$(ABIV_$(1)),$(PROVIDES)$$(if $$(ABIV_$(1)), \
-		$(1) $(foreach provide,$(PROVIDES),$(provide)$$(ABIV_$(1))))),$$(prov)=$(VERSION) )" \
-	  --script "post-install:$$(ADIR_$(1))/post-install" \
-	  --script "pre-deinstall:$$(ADIR_$(1))/pre-deinstall" \
+	  --info "url:$(URL)" \
+	  --info "maintainer:$(MAINTAINER)" \
+	  --info "provides:$$(foreach prov,\
+			$$(filter-out $(1)$$(ABIV_$(1)), \
+			$(PROVIDES)$$(if $$(ABIV_$(1)), \
+				$(1)=$(VERSION) $(foreach provide, \
+					$(PROVIDES), \
+					$(provide)$$(ABIV_$(1))=$(VERSION) \
+				) \
+			) \
+		), \
+		$$(prov) )" \
+	  $(if $(DEFAULT_VARIANT),--info "provider-priority:100",$(if $(PROVIDES),--info "provider-priority:1")) \
+	  $$(APK_SCRIPTS_$(1)) \
 	  --info "depends:$$(foreach depends,$$(subst $$(comma),$$(space),$$(subst $$(space),,$$(subst $$(paren_right),,$$(subst $$(paren_left),,$$(Package/$(1)/DEPENDS))))),$$(depends))" \
 	  --files "$$(IDIR_$(1))" \
 	  --output "$$(PACK_$(1))" \
