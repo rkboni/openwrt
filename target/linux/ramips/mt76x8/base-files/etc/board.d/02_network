@@ -45,6 +45,7 @@ ramips_setup_interfaces()
 	hilink,hlk-7628n|\
 	hilink,hlk-7688a|\
 	hiwifi,hc5861b|\
+	keenetic,kn-1711|\
 	kroks,kndrt31r16|\
 	skylab,skw92a|\
 	tplink,archer-c20-v4|\
@@ -81,7 +82,8 @@ ramips_setup_interfaces()
 	buffalo,wcr-1166ds|\
 	elecom,wrc-1167fs|\
 	wavlink,wl-wn577a2|\
-	wavlink,wl-wn578a2)
+	wavlink,wl-wn578a2|\
+	yuncore,m300)
 		ucidef_add_switch "switch0" \
 			"3:lan" "4:wan" "6@eth0"
 		;;
@@ -129,9 +131,14 @@ ramips_setup_interfaces()
 			"0:lan" "1:lan" "2:lan" "6@eth0"
 		;;
 	keenetic,kn-1613|\
+	keenetic,kn-1713|\
 	motorola,mwr03)
 		ucidef_add_switch "switch0" \
 			"1:lan" "2:lan" "3:lan" "0:wan" "6@eth0"
+		;;
+	keenetic,kn-3211)
+		ucidef_add_switch "switch0" \
+			"2:lan" "6@eth0"
 		;;
 	kroks,kndrt31r19)
 		ucidef_add_switch "switch0" \
@@ -147,7 +154,8 @@ ramips_setup_interfaces()
 	netgear,r6020|\
 	netgear,r6080|\
 	netgear,r6120|\
-	wavlink,wl-wn531a3)
+	wavlink,wl-wn531a3|\
+	zbtlink,zbt-we2426-b)
 		ucidef_add_switch "switch0" \
 			"0:lan:4" "1:lan:3" "2:lan:2" "3:lan:1" "4:wan" "6@eth0"
 		;;
@@ -159,7 +167,8 @@ ramips_setup_interfaces()
 		ucidef_add_switch "switch0" \
 			"0:wan" "1:lan" "2:lan" "3:lan" "4:lan" "6t@eth0"
 		;;
-	tplink,archer-mr200-v5)
+	tplink,archer-mr200-v5|\
+	tplink,archer-mr200-v6)
 		ucidef_add_switch "switch0" \
 			"0:lan" "1:lan" "2:lan" "3:lan" "6t@eth0"
 		ucidef_set_interface "wan" device "/dev/cdc-wdm0" protocol "qmi"
@@ -186,7 +195,8 @@ ramips_setup_interfaces()
 			"0:wan" "3:lan" "4:lan" "6@eth0"
 		;;
 	xiaomi,mi-router-4a-100m|\
-	xiaomi,mi-router-4a-100m-intl)
+	xiaomi,mi-router-4a-100m-intl|\
+	xiaomi,mi-router-4a-100m-intl-v2)
 		ucidef_add_switch "switch0" \
 			"4:lan:1" "2:lan:2" "0:wan" "6@eth0"
 		;;
@@ -201,6 +211,10 @@ ramips_setup_interfaces()
 	xiaomi,miwifi-nano)
 		ucidef_add_switch "switch0" \
 			"0:lan:2" "2:lan:1" "4:wan" "6@eth0"
+		;;
+	yuncore,cpe200)
+		ucidef_add_switch "switch0" \
+			"0:lan" "4:wan" "6@eth0"
 		;;
 	zbtlink,zbt-we1226)
 		ucidef_add_switch "switch0" \
@@ -238,7 +252,8 @@ ramips_setup_macs()
 	hilink,hlk-7688a|\
 	wavlink,wl-wn531a3|\
 	wavlink,wl-wn577a2|\
-	wavlink,wl-wn578a2)
+	wavlink,wl-wn578a2|\
+	zbtlink,zbt-we2426-b)
 		wan_mac=$(mtd_get_mac_binary factory 0x2e)
 		label_mac=$(mtd_get_mac_binary factory 0x4)
 		;;
@@ -272,6 +287,7 @@ ramips_setup_macs()
 		wan_mac=$(mtd_get_mac_binary factory 0x2e)
 		;;
 	keenetic,kn-1613|\
+	keenetic,kn-3211|\
 	zyxel,keenetic-extra-ii)
 		wan_mac=$(mtd_get_mac_binary rf-eeprom 0x28)
 		;;
@@ -323,6 +339,7 @@ ramips_setup_macs()
 		;;
 	xiaomi,mi-router-4a-100m|\
 	xiaomi,mi-router-4a-100m-intl|\
+	xiaomi,mi-router-4a-100m-intl-v2|\
 	xiaomi,mi-router-4c)
 		wan_mac=$(mtd_get_mac_binary factory 0x4)
 		;;
