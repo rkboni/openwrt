@@ -13,15 +13,12 @@ Signed-off-by: Luo Jie <quic_luoj@quicinc.com>
  arch/arm64/boot/dts/qcom/ipq9574.dtsi | 38 +++++++++++++++++++++++++++
  1 file changed, 38 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/qcom/ipq9574.dtsi b/arch/arm64/boot/dts/qcom/ipq9574.dtsi
-index ce3a1b5d70ea..07a96d26b359 100644
 --- a/arch/arm64/boot/dts/qcom/ipq9574.dtsi
 +++ b/arch/arm64/boot/dts/qcom/ipq9574.dtsi
-@@ -884,6 +884,44 @@ pcsuniphy2_ch0: uniphy-ch@0 {
- 					      "ch_tx";
- 			};
+@@ -1256,6 +1256,44 @@
+ 			#interconnect-cells = <1>;
  		};
-+
+ 
 +		ethernet@3a000000 {
 +			compatible = "qcom,ipq9574-ppe";
 +			reg = <0x3a000000 0xbef800>;
@@ -59,9 +56,7 @@ index ce3a1b5d70ea..07a96d26b359 100644
 +					     "memnoc_nssnoc",
 +					     "memnoc_nssnoc_1";
 +		};
- 	};
- 
- 	thermal-zones {
--- 
-2.45.2
-
++
+ 		pcsuniphy0: ethernet-uniphy@7a00000 {
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
