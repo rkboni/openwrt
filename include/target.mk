@@ -55,9 +55,7 @@ DEFAULT_PACKAGES.router:=\
 	nftables \
 	kmod-nft-offload \
 	odhcp6c \
-	odhcpd-ipv6only \
-	ppp \
-	ppp-mod-pppoe
+	odhcpd-ipv6only
 
 ifneq ($(DUMP),)
   all: dumpinfo
