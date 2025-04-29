@@ -1,0 +1,19 @@
+#!/bin/sh
+
+logger -t wifi-mon "Monitoring Wifi devices for DFS shutdown"
+logread -f | while read line; do
+	echo "$line" | grep "interface state DFS->" &>/dev/null && {
+		# EG: daemon.notice hostapd: phy1-ap0: interface state DFS->DISABLED
+		radio=$(echo $line | grep -oE -e '\d' | head -n1) || continue
+		case ${line##*>} in
+			ENABLED)
+				logger -t wifi-mon "radio$radio DFS scan complete"
+				;;
+			DISABLED)
+				logger -t wifi-mon "Restart radio$radio due to DFS shutdown"
+				wifi up radio$radio
+				;;
+			*);;
+		esac
+	}
+done

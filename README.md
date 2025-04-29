@@ -1,3 +1,31 @@
+# Openwrt with a slow-boat twist
+This is exactly the great openwrt with following minor conveniences:
+
+ppp packages no longer turned on by default, since we don't always need them.
+
+Luci default feed now points to slow-boat branch which is identical to master except for removal of built-in ppp.
+
+New ```configs``` directory contains preconfigured dumb AP configs with basic LuCI interface. symlink the config you want
+```
+ln -s configs/.config.habanero .config
+```
+
+Also added is a DFS watchdog service in `package/network/utils/wifi-mon` that monitors syslog for DFS shutdown and triggers radio restart. This is useful where interference is falsely detected as a radar, and prevents the wireless interface from starting. If its really there, then it will keep tripping on DFS detection. This is probably not legal, but its a PITA when power drops and the radios don't start due to some noise (not from radar).
+
+The wifi setup for IPQ4x platforms in configs uses the high throughput CT non-commercial firmware, and support for 80211r.
+
+Seems to be rock solid on these platforms so far. DSA is used on the switch. Works with vlans. Typical setup is a vlan trunk, with multple SSIDs on their own vlan. The age of the silicon (its "only" AC wifi) is a great example of stability comes with time. And its more than enough for domestic expectations.
+
+
+### Added support for **TP-link Deco M5 (IPQ4019)**
+
+Sysupgrade currently not working. Use factory image via TFTP recovery- see [here](https://github.com/dutchmillbytes/openwrt/commit/c666fd5bbbe483ec2844326110951b76b9c80f25) which is where the patches came from, with one difference that both GbE ports are part of LAN bridge, and there is no wan interface configured (makes no sense for a dumb AP).
+
+The deco was the cheapest IPQ4x platform I could find and I purchased 3x of them used for AUD$80. I get sustained 500Mbps on my phone which is enough, and the 80211r works great.
+
+Elsewhere I use a 8-devices Habanero dev board which gives me same performance but I get 4 GbE access ports for hardwired devices as well as the wifi. I modded the boards to use higher gain PCB antennas. \
+\
+&nbsp;
 ![OpenWrt logo](include/logo.png)
 
 OpenWrt Project is a Linux operating system targeting embedded devices. Instead
