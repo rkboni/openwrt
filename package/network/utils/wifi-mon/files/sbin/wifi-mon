@@ -1,17 +1,30 @@
 #!/bin/sh
 
+wifi_restart(){
+	logger -t wifi-mon "Restart radio$1 due to radar detetction causing shutdown"
+	wifi up radio$1
+}
+
 logger -t wifi-mon "Monitoring Wifi devices for DFS shutdown"
 logread -f | while read line; do
+	line=$(echo $line | awk -F'daemon.notice hostapd: phy' '{print $2}')
+	echo "$line" | grep "DFS-" &>/dev/null || continue
+	radio=$(echo $line | grep -oE -e '\d' | head -n1) || continue
+	# daemon.notice hostapd: phy1-ap0: DFS-RADAR-DETECTED freq=5540 ht_enabled=0 chan_offset=0 chan_width=3 cf1=5530 cf2=0	
+	echo "$line" | grep "DFS-RADAR-DETECTED" &>/dev/null && {
+		wifi_restart $radio
+		continue
+	}
+	
 	echo "$line" | grep "interface state DFS->" &>/dev/null && {
-		# EG: daemon.notice hostapd: phy1-ap0: interface state DFS->DISABLED
-		radio=$(echo $line | grep -oE -e '\d' | head -n1) || continue
+		# Examples:
+		# daemon.notice hostapd: phy1-ap0: interface state DFS->DISABLED		
 		case ${line##*>} in
 			ENABLED)
 				logger -t wifi-mon "radio$radio DFS scan complete"
 				;;
 			DISABLED)
-				logger -t wifi-mon "Restart radio$radio due to DFS shutdown"
-				wifi up radio$radio
+				wifi_restart $radio
 				;;
 			*);;
 		esac
