@@ -20,7 +20,7 @@
 		bootargs-find-2 = "ubi.mtd=24,2048";
 		bootargs-replace-2 = "ubi.mtd=24,4096";
 
-		bootargs-append = " dyndbg=\"file net/dsa/* +p\" dynamic_debug.verbose=1 loglevel=8";
+		bootargs-append = " dyndbg=\"module dsa_core +p; module qca8k +p\" dynamic_debug.verbose=1 loglevel=8";
 	};
 };
 
