@@ -49,13 +49,10 @@ jobs:
             - name: Get SHA
               uses: benjlevesque/short-sha@v2.2
 
-            - name: List artifacts
-              run: ls -laFR bin/targets/
-
             - name: Release
               uses: ncipollo/release-action@v1
               with:
                 tag: mx4x00-${{ env.SHA }}
                 commit: ${{ github.event.ref }}
                 allowUpdates: true
-                artifacts: bin/targets/qualcommax/ipq807x/*
+                artifacts: bin/targets/qualcommax/ipq807x/openwrt*-qualcommax-ipq807x-linksys_mx4*
