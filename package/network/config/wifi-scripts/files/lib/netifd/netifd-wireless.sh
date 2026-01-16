@@ -308,12 +308,6 @@ wireless_vif_parse_encryption() {
 			esac
 		;;
 	esac
-
-	case "$encryption" in
-		*osen*)
-			auth_osen=1
-		;;
-	esac
 }
 
 _wireless_set_brsnoop_isolation() {
@@ -405,7 +399,8 @@ _wdev_common_vlan_config() {
 }
 
 _wdev_common_station_config() {
-	config_add_string mac key vid iface
+	config_add_string key vid iface
+	config_add_array mac
 }
 
 init_wireless_driver() {

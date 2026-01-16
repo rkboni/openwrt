@@ -1,11 +1,7 @@
-src-git packages https://git.openwrt.org/feed/packages.git
+#src-git packages https://github.com/openwrt/packages.git^3f7daf56610aa4788761530942d5155172ef0622
+#src-git luci https://github.com/openwrt/luci.git
+#src-git routing https://git.openwrt.org/feed/routing.git^d0f6265f6f32d44753c22474c11cc16a76a5d512
 
-#luci master: src-git luci https://github.com/openwrt/luci.git
-src-git luci git@github.com:slow-boat/luci.git;noppp
-
+src-git packages https://github.com/openwrt/packages.git
+src-git luci git@github.com:slow-boat/luci.git;noppp-working
 src-git routing https://git.openwrt.org/feed/routing.git
-src-git telephony https://git.openwrt.org/feed/telephony.git
-src-git video https://github.com/openwrt/video.git
-#src-git targets https://github.com/openwrt/targets.git
-#src-git oldpackages http://git.openwrt.org/packages.git
-#src-link custom /usr/src/openwrt/custom-feed
