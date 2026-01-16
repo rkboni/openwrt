@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=libpcap
 PKG_VERSION:=1.10.5
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://www.tcpdump.org/release/
@@ -35,7 +35,7 @@ define Package/libpcap
   SECTION:=libs
   CATEGORY:=Libraries
   TITLE:=Low-level packet capture library
-  URL:=http://www.tcpdump.org/
+  URL:=https://www.tcpdump.org/
   MENU:=1
   ABI_VERSION:=1
 endef
@@ -53,8 +53,8 @@ define Package/rpcapd
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Capture daemon to be controlled by a remote libpcap application
-  URL:=http://www.tcpdump.org/
-  DEPENDS+= +libpcap
+  URL:=https://www.tcpdump.org/
+  DEPENDS+= +USE_GLIBC:libcrypt-compat +libpcap
 endef
 
 ifdef CONFIG_PACKAGE_rpcapd

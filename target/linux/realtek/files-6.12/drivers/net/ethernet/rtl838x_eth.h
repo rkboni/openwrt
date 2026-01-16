@@ -5,6 +5,18 @@
 
 /* Register definition */
 
+/*
+ * Reset
+ */
+#define RTL838X_RST_GLB_CTRL_0			(0x003c)
+#define RTL839X_RST_GLB_CTRL			(0x0014)
+#define RTL930X_RST_GLB_CTRL_0			(0x000c)
+#define RTL931X_RST_GLB_CTRL			(0x0400)
+
+/* Switch interrupts */
+#define RTL839X_IMR_PORT_LINK_STS_CHG		(0x0068)
+#define RTL839X_ISR_PORT_LINK_STS_CHG		(0x00a0)
+
 /* Per port MAC control */
 #define RTL838X_MAC_PORT_CTRL			(0xd560)
 #define RTL839X_MAC_PORT_CTRL			(0x8004)
@@ -48,9 +60,11 @@
 #define RTL930X_MAC_FORCE_MODE_CTRL		(0xCA1C)
 #define RTL931X_MAC_FORCE_MODE_CTRL		(0x0dcc)
 
-#define RTL83XX_DMA_IF_INTR_STS_NOTIFY_MASK	GENMASK(22, 20)
-#define RTL83XX_DMA_IF_INTR_STS_RX_DONE_MASK	GENMASK(15, 8)
-#define RTL83XX_DMA_IF_INTR_STS_RX_RUN_OUT_MASK	GENMASK(7, 0)
+#define RTL839X_DMA_IF_INTR_NOTIFY_MASK		GENMASK(22, 20)
+#define RTL83XX_DMA_IF_INTR_RX_DONE_MASK	GENMASK(15, 8)
+#define RTL83XX_DMA_IF_INTR_RX_RUN_OUT_MASK	GENMASK(7, 0)
+#define RTL83XX_DMA_IF_INTR_RX_MASK(ring)	(BIT(ring) | BIT(ring + 8))
+#define RTL93XX_DMA_IF_INTR_RX_MASK(ring)	(BIT(ring))
 
 /* MAC address settings */
 #define RTL838X_MAC				(0xa9ec)
@@ -88,15 +102,6 @@
 
 #define RTL838X_DMA_IF_TX_CUR_DESC_ADDR_CTRL	(0x9F48)
 #define RTL930X_DMA_IF_TX_CUR_DESC_ADDR_CTRL	(0xE008)
-
-#define RTL838X_DMY_REG31			(0x3b28)
-#define RTL838X_SDS_MODE_SEL			(0x0028)
-#define RTL838X_SDS_CFG_REG			(0x0034)
-#define RTL838X_INT_MODE_CTRL			(0x005c)
-#define RTL838X_CHIP_INFO			(0x00d8)
-#define RTL838X_SDS4_REG28			(0xef80)
-#define RTL838X_SDS4_DUMMY0			(0xef8c)
-#define RTL838X_SDS5_EXT_REG6			(0xf18c)
 
 /* L2 features */
 #define RTL839X_TBL_ACCESS_L2_CTRL		(0x1180)
@@ -150,12 +155,12 @@
 #define RTL930X_L2_PORT_DABLK_CTRL		(0x9060)
 
 /* MAC link state bits */
-#define FORCE_EN				(1 << 0)
-#define FORCE_LINK_EN				(1 << 1)
-#define NWAY_EN					(1 << 2)
-#define DUPLX_MODE				(1 << 3)
-#define TX_PAUSE_EN				(1 << 6)
-#define RX_PAUSE_EN				(1 << 7)
+#define FORCE_EN				BIT(0)
+#define FORCE_LINK_EN				BIT(1)
+#define NWAY_EN					BIT(2)
+#define DUPLX_MODE				BIT(3)
+#define TX_PAUSE_EN				BIT(6)
+#define RX_PAUSE_EN				BIT(7)
 
 /* L2 Notification DMA interface */
 #define RTL839X_DMA_IF_NBUF_BASE_DESC_ADDR_CTRL	(0x785C)
@@ -165,6 +170,7 @@
 #define RTL839X_L2_NOTIFICATION_CTRL		(0x7808)
 #define RTL931X_L2_NTFY_CTRL			(0xCDC8)
 #define RTL838X_L2_CTRL_0			(0x3200)
+#define RTL838X_L2_CTRL_1			(0x3204)
 #define RTL839X_L2_CTRL_0			(0x3800)
 #define RTL930X_L2_CTRL				(0x8FD8)
 #define RTL931X_L2_CTRL				(0xC800)
@@ -190,20 +196,6 @@
 #define RTL931X_RMA_CTRL_1			(0x8804)
 #define RTL931X_RMA_CTRL_2			(0x8808)
 
-/* Advanced SMI control for clause 45 PHYs */
-#define RTL930X_SMI_MAC_TYPE_CTRL		(0xCA04)
-#define RTL930X_SMI_PORT24_27_ADDR_CTRL		(0xCB90)
-#define RTL930X_SMI_PORT0_15_POLLING_SEL	(0xCA08)
-#define RTL930X_SMI_PORT16_27_POLLING_SEL	(0xCA0C)
-
-#define RTL930X_SMI_10GPHY_POLLING_REG0_CFG	(0xCBB4)
-#define RTL930X_SMI_10GPHY_POLLING_REG9_CFG	(0xCBB8)
-#define RTL930X_SMI_10GPHY_POLLING_REG10_CFG	(0xCBBC)
-#define RTL930X_SMI_PRVTE_POLLING_CTRL		(0xCA10)
-
-/* Registers of the internal Serdes of the 8390 */
-#define RTL839X_SDS12_13_XSG0			(0xB800)
-
 /* Chip configuration registers of the RTL9310 */
 #define RTL931X_MEM_ENCAP_INIT			(0x4854)
 #define RTL931X_MEM_MIB_INIT			(0x7E18)
@@ -213,12 +205,21 @@
 #define RTL931X_MEM_ALE_INIT_2			(0x82E4)
 #define RTL931X_MDX_CTRL_RSVD			(0x0fcc)
 #define RTL931X_PS_SOC_CTRL			(0x13f8)
-#define RTL931X_SMI_10GPHY_POLLING_SEL2		(0xCF8)
-#define RTL931X_SMI_10GPHY_POLLING_SEL3		(0xCFC)
-#define RTL931X_SMI_10GPHY_POLLING_SEL4		(0xD00)
 
-/* Registers of the internal Serdes of the 8380 */
-#define RTL838X_SDS4_FIB_REG0			(0xF800)
+/* shared CPU tag definitions for RTL930X/RTL931X */
+#define RTL93XX_CPU_TAG1_FWD_MASK		GENMASK(11, 8)
+
+#define RTL93XX_CPU_TAG1_FWD_ALE		0
+#define RTL93XX_CPU_TAG1_FWD_PHYSICAL		1
+#define RTL93XX_CPU_TAG1_FWD_LOGICAL		2
+#define RTL93XX_CPU_TAG1_FWD_TRUNK		3
+#define RTL93XX_CPU_TAG1_FWD_ONE_HOP		4
+#define RTL93XX_CPU_TAG1_FWD_LOGICAL_ONE_HOP	5
+#define RTL93XX_CPU_TAG1_FWD_UCST_CPU_MIN_PORT	6
+#define RTL93XX_CPU_TAG1_FWD_UCST_CPU		7
+#define RTL93XX_CPU_TAG1_FWD_BCST_CPU		8
+
+#define RTL93XX_CPU_TAG1_IGNORE_STP_MASK	GENMASK(2, 2)
 
 /* Default MTU with jumbo frames support */
 #define DEFAULT_MTU 9000
@@ -307,9 +308,16 @@ inline u32 rtl930x_get_mac_link_sts(int port)
 	return link & BIT(port);
 }
 
-inline u32 rtl931x_get_mac_link_sts(int p)
+inline u32 rtldsa_931x_get_mac_link_sts(int port)
 {
-	return (sw_r32(RTL931X_MAC_LINK_STS + ((p >> 5) << 2)) & BIT(p % 32));
+	unsigned int reg = RTL931X_MAC_LINK_STS + (port / 32) * 4;
+	u32 mask = BIT(port % 32);
+	u32 link;
+
+	link = sw_r32(reg);
+	link = sw_r32(reg);
+
+	return (link & mask);
 }
 
 inline u32 rtl838x_get_mac_link_dup_sts(int port)
@@ -349,7 +357,6 @@ inline u32 rtl839x_get_mac_link_spd_sts(int port)
 	speed >>= (port % 16) << 1;
 	return (speed & 0x3);
 }
-
 
 inline u32 rtl930x_get_mac_link_spd_sts(int port)
 {
@@ -411,8 +418,11 @@ inline u32 rtl931x_get_mac_tx_pause_sts(int p)
 
 struct p_hdr;
 struct dsa_tag;
+struct rteth_ctrl;
 
-struct rtl838x_eth_reg {
+struct rteth_config {
+	int family_id;
+	int cpu_port;
 	irqreturn_t (*net_irq)(int irq, void *dev_id);
 	int (*mac_port_ctrl)(int port);
 	int dma_if_intr_sts;
@@ -443,13 +453,8 @@ struct rtl838x_eth_reg {
 	void (*update_cntr)(int r, int work_done);
 	void (*create_tx_header)(struct p_hdr *h, unsigned int dest_port, int prio);
 	bool (*decode_tag)(struct p_hdr *h, struct dsa_tag *tag);
+	int (*init_mac)(struct rteth_ctrl *ctrl);
+	const struct net_device_ops *netdev_ops;
 };
-
-int phy_package_port_read_paged(struct phy_device *phydev, int port, int page, u32 regnum);
-int phy_package_port_write_paged(struct phy_device *phydev, int port, int page, u32 regnum, u16 val);
-int phy_package_read_paged(struct phy_device *phydev, int page, u32 regnum);
-int phy_package_write_paged(struct phy_device *phydev, int page, u32 regnum, u16 val);
-int phy_port_read_paged(struct phy_device *phydev, int port, int page, u32 regnum);
-int phy_port_write_paged(struct phy_device *phydev, int port, int page, u32 regnum, u16 val);
 
 #endif /* _RTL838X_ETH_H */
