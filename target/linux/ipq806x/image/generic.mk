@@ -311,6 +311,31 @@ define Device/meraki_mr52
 endef
 TARGET_DEVICES += meraki_mr52
 
+define Device/meraki_mr53
+	$(call Device/FitImage)
+	$(call Device/UbiFit)
+	DEVICE_VENDOR := Cisco Meraki
+	DEVICE_MODEL := MR53
+	SOC := qcom-ipq8068
+	BLOCKSIZE := 128k
+	PAGESIZE := 2048
+	KERNEL_LOADADDR = 0x44208000
+	KERNEL_IN_UBI := 1
+	DEVICE_DTS_CONFIG := config@1
+	DEVICE_PACKAGES := -kmod-ata-ahci -kmod-ata-ahci-platform \
+		-kmod-usb-ohci -kmod-usb2 -kmod-usb-ledtrig-usbport \
+		-kmod-phy-qcom-ipq806x-usb -kmod-usb3 -kmod-usb-dwc3-qcom \
+		-uboot-envtools \
+		ath10k-firmware-qca9887-ct-full-htt \
+		ath10k-firmware-qca9984-ct-full-htt \
+		kmod-eeprom-at24 kmod-hwmon-ina2xx \
+		kmod-leds-tlc591xx kmod-i2c-gpio \
+		kmod-phy-aquantia kmod-phy-at803x \
+		kmod-switch-phy
+	DEVICE_DTS := qcom-ipq8068-mr53
+endef
+TARGET_DEVICES += meraki_mr53
+
 define Device/nec_wg2600hp
 	$(call Device/LegacyImage)
 	$(Device/dsa-migration)
