@@ -1,0 +1,375 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+#include "qcom-ipq8068-cryptid-common.dtsi"
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/leds/common.h>
+
+/ {
+	model = "Meraki MR53";
+	compatible = "meraki,mr53", "qcom,ipq8064-ap160", "qcom,ipq8064";
+
+	chosen {
+		bootargs = "console=ttyMSM0,115200n8";
+		bootargs-append = " ubi.mtd=ubi ubi.block=0,rootfs root=/dev/ubiblock0_1 rootfstype=squashfs rootwait ubi.mtd=art";
+	};	
+
+	aliases {
+		serial1 = &gsbi1_serial;
+		ethernet0 = &lan1; /* 1GbE - AR8033 */
+		ethernet1 = &lan2; /* 2.5GbE - Aquantia */
+		mdio-gpio0 = &mdio0;
+		mdio-gpio1 = &mdio1;
+		label-mac-device = &lan1;
+		
+		led-boot = &led_active;
+		led-failsafe = &led_power;
+		led-running = &led_active;
+		led-upgrade = &led_active;
+	};
+
+	keys {
+		compatible = "gpio-keys"; 
+		pinctrl-0 = <&button_pins>;
+		pinctrl-names = "default";
+
+		reset {
+			label = "reset";
+			gpios = <&qcom_pinmux 25 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_RESTART>;
+			debounce-interval = <60>;
+			wakeup-source;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-0 = <&led_pins>;
+		pinctrl-names = "default";
+
+		led_power: power {
+			function = LED_FUNCTION_POWER;
+			color = <LED_COLOR_ID_ORANGE>;
+			gpios = <&qcom_pinmux 19 GPIO_ACTIVE_HIGH>;
+		};
+
+		lan1_green {
+			label = "green:lan1";
+			gpios = <&qcom_pinmux 24 GPIO_ACTIVE_HIGH>;
+		};
+
+		lan2_green {
+			label = "green:lan2";
+			gpios = <&qcom_pinmux 23 GPIO_ACTIVE_HIGH>;
+		};
+
+		led_active: active {
+			label = "white:active";
+			gpios = <&qcom_pinmux 26 GPIO_ACTIVE_LOW>;
+		};
+
+		lan1_orange {
+			label = "orange:lan1";
+			gpios = <&qcom_pinmux 62 GPIO_ACTIVE_HIGH>;
+		};
+
+		lan2_orange {
+			label = "orange:lan2";
+			gpios = <&qcom_pinmux 60 GPIO_ACTIVE_HIGH>;
+		};
+	};
+};
+
+&mdio0 {
+	status = "okay";
+
+	pinctrl-0 = <&mdio0_pins>;
+	pinctrl-names = "default";
+};
+
+&soc {
+	mdio1: mdio@1 {
+		compatible = "virtual,mdio-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpios = <&qcom_pinmux 66 GPIO_ACTIVE_HIGH>,
+			<&qcom_pinmux 2 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-0 = <&mdio1_pin_clk>, <&mdio1_pin_data>;
+		pinctrl-names = "default";
+
+		phy_ar8033: ethernet-phy@5 {
+			device_type = "ethernet-phy";
+			reg = <0x5>;			
+		};
+
+		phy_aquantia: ethernet-phy@10 {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			reg = <0x10>;
+		};
+	};
+
+	/* Virtual netdev for 1GbE port (AR8033 PHY via single GMAC) */
+	lan1: switch-phy@1 {
+		compatible = "virtual,switch-phy";
+		label = "lan1";
+		
+		/* PHY this netdev represents */
+		phy-handle = <&phy_ar8033>;
+		
+		/* Parent netdev that carries traffic */
+		parent-netdevs = <&gmac0>;
+		nvmem-cells = <&mac_address 0>;
+		nvmem-cell-names = "mac-address";
+	};
+	
+	/* Virtual netdev for 2.5GbE port (Aquantia PHY via bonded GMACs) */
+	lan2: switch-phy@0 {
+		compatible = "virtual,switch-phy";
+		label = "lan2";
+		
+		phy-handle = <&phy_aquantia>;
+		parent-netdevs = <&gmac1>, <&gmac2>, <&gmac3>;
+		
+		/* Bond configuration */
+		bond-name = "bond-lan2";
+		bond-mode = "balance-xor";
+		bond-xmit-hash = "layer2+3";
+
+		nvmem-cells = <&mac_address 1>;
+		nvmem-cell-names = "mac-address";
+	};
+		
+	/* QCA8511 switch - uses both MDIO buses */
+	qca-85xx-sw {
+		compatible = "qcom,qca-85xx-sw";
+		mdiobus = <&mdio0>;
+		sgmii-plus-phy-handle = <&phy_aquantia>;
+		
+		qcom,chip-id = <1>;
+		qcom,qsgmii-cfg-port-mode = <1>;
+		qcom,qsgmii-cfg-port-base = <1>;
+		qcom,qsgmii-cfg-is-speed-forced = <1>;
+		qcom,qsgmii-cfg-forced-speed = <1000>;
+		qcom,qsgmii-cfg-forced-duplex = <1>;
+
+		qcom,port-26-cfg-port-mode = <2>;
+		qcom,port-26-cfg-is-speed-forced = <0>;
+
+		qcom,port-27-cfg-port-mode = <3>;
+		qcom,port-27-cfg-is-speed-forced = <1>;
+		qcom,port-27-cfg-forced-speed = <2500>;
+		qcom,port-27-cfg-forced-duplex = <1>;
+
+		qcom,trunk-cfg-is-trunk-enabled = <1>;
+		qcom,trunk-cfg-trunk-id = <0>;
+		qcom,trunk-cfg-trunk-hash-policy = <0xff>;
+		qcom,trunk-cfg-trunk-ports-bit-map = <0x1c>;
+		
+		qcom,port-isolation-enable = <1>;
+
+		qcom,port-isolation-profile0-ports = <2 3 4 27>;
+		qcom,port-isolation-profile0-id = <1>;
+
+		qcom,port-isolation-profile1-ports = <1 26>;
+		qcom,port-isolation-profile1-id = <2>;
+
+		qcom,disable-learning-ports = <1 2 3 4 26 27>;
+		
+		qcom,gmac-devices = <&gmac0>, <&gmac1>, <&gmac2>, <&gmac3>;
+	};
+};
+
+&gmac0 {
+    status = "okay";
+    qcom,id = <0>;
+    qcom,nss-common = <&nss_common>;
+    qcom,qsgmii-csr = <&qsgmii_csr>;
+    phy-mode = "qsgmii";
+	nvmem-cells = <&mac_address 0>;
+	nvmem-cell-names = "mac-address";
+	label = "cpu0";
+    fixed-link {
+        speed = <1000>;
+        full-duplex;
+    };
+};
+
+&gmac1 {
+    status = "okay";
+    qcom,id = <1>;
+    qcom,nss-common = <&nss_common>;
+    qcom,qsgmii-csr = <&qsgmii_csr>;
+    phy-mode = "qsgmii";
+	nvmem-cells = <&mac_address 1>;
+	nvmem-cell-names = "mac-address";
+	label = "cpu1"; 
+    fixed-link {
+        speed = <1000>;
+        full-duplex;
+    };
+};
+
+&gmac2 {
+	status = "okay";
+	qcom,id = <2>;
+	qcom,nss-common = <&nss_common>;
+	qcom,qsgmii-csr = <&qsgmii_csr>;
+	phy-mode = "qsgmii";
+	nvmem-cells = <&mac_address 2>;
+	nvmem-cell-names = "mac-address";
+	label = "cpu2"; 
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&gmac3 {
+    status = "okay";
+    qcom,id = <3>;
+    qcom,nss-common = <&nss_common>;
+    qcom,qsgmii-csr = <&qsgmii_csr>;
+    phy-mode = "qsgmii";
+	nvmem-cells = <&mac_address 3>;
+	nvmem-cell-names = "mac-address";
+	label = "cpu3";
+    fixed-link {
+        speed = <1000>;
+        full-duplex;
+    };
+};
+
+&gsbi7 {
+	status = "okay";
+	qcom,mode = <GSBI_PROT_I2C>;
+};
+
+&gsbi7_i2c {
+	status = "okay";
+
+	pinctrl-0 = <&i2c_pins>;
+	pinctrl-names = "default";
+
+	ina2xx@45 {
+		compatible = "ina219";
+		shunt-resistor = <95000>;
+		reg = <0x45>;
+	};
+
+	tlc591xx@49 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ti,tlc59108";
+		reg = <0x49>;
+
+		red@0 {
+			label = "red:user";
+			reg = <0x0>;
+		};
+
+		green@1 {
+			label = "green:user";
+			reg = <0x1>;
+		};
+
+		blue@2 {
+			label = "blue:user";
+			reg = <0x2>;
+		};
+	};
+
+	eeprom@52 {
+		compatible = "atmel,24c64";
+		pagesize = <32>;
+		reg = <0x52>;
+		read-only;
+
+		nvmem-layout {
+			compatible = "fixed-layout";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			mac_address: mac-address@66 {
+				compatible = "mac-base";
+				reg = <0x66 0x6>;
+				#nvmem-cell-cells = <1>;
+			};
+		};
+	};
+};
+
+&qcom_pinmux {
+	i2c_pins: i2c_pins {
+		pins = "gpio8", "gpio9";
+		function = "gsbi7";
+		drive-strength = <2>;
+		bias-pull-up;
+		input;
+	};
+
+	led_pins: led_pins {
+		pins = "gpio19", "gpio26";
+		function = "gpio";
+		drive-strength = <12>;
+		bias-pull-down;
+		output-low;
+	};
+
+	button_pins: button_pins {
+		pins = "gpio25";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+		input;
+	};
+
+	mdio1_pin_clk: mdio1-state-clk {
+		pins = "gpio66";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-disable;
+	};
+	
+	mdio1_pin_data: mdio1-state-data {
+		pins = "gpio2";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-disable;
+	};
+};
+
+&wifi0 {
+	nvmem-cells = <&mac_address 4>;
+	nvmem-cell-names = "mac-address";
+};
+
+&wifi1 {
+	nvmem-cells = <&mac_address 3>;
+	nvmem-cell-names = "mac-address";
+};
+
+&wifi2 {
+	nvmem-cells = <&mac_address 2>;
+	nvmem-cell-names = "mac-address";
+};
+
+/* custom layout to reclaim some wasted bootkernel2 space for ubi */
+&nand {
+	nand@0 {
+		partitions {
+			/delete-node/ partition@2c40000;
+			/delete-node/ partition@36c0000;
+
+			partition@2c40000 {
+				label = "bootkernel2";
+				reg = <0x2c40000 0x40000>;
+			};
+
+			partition@2c80000 {
+				label = "ubi";
+				reg = <0x2c80000 0x5100000>;
+			};
+		};
+	};
+};
