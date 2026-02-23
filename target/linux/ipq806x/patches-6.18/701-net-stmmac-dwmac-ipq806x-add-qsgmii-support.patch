@@ -1,0 +1,293 @@
+Index: linux-6.12.65/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
+===================================================================
+--- linux-6.12.65.orig/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
++++ linux-6.12.65/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
+@@ -22,13 +22,14 @@
+ #include <linux/regmap.h>
+ #include <linux/clk.h>
+ #include <linux/reset.h>
++#include <linux/of_mdio.h>
+ #include <linux/of_net.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/stmmac.h>
+-#include <linux/of_mdio.h>
+ #include <linux/module.h>
+ #include <linux/sys_soc.h>
+ #include <linux/bitfield.h>
++#include <linux/mdio.h>
+ 
+ #include "stmmac_platform.h"
+ 
+@@ -52,6 +53,7 @@
+  */
+ #define NSS_COMMON_CLK_SRC_CTRL_RGMII(x)	1
+ #define NSS_COMMON_CLK_SRC_CTRL_SGMII(x)	((x >= 2) ? 1 : 0)
++#define NSS_COMMON_CLK_SRC_CTRL_QSGMII(x)	0
+ 
+ #define NSS_COMMON_GMAC_CTL(x)			(0x30 + (x * 4))
+ #define NSS_COMMON_GMAC_CTL_CSYS_REQ		BIT(19)
+@@ -66,6 +68,7 @@
+ #define NSS_COMMON_CLK_DIV_SGMII_100		4
+ #define NSS_COMMON_CLK_DIV_SGMII_10		49
+ 
++#define QSGMII_PCS_ALL_CH_CTL_CH_EN(x)	BIT(28 + (x))
+ #define QSGMII_PCS_ALL_CH_CTL			0x80
+ #define QSGMII_PCS_CH_SPEED_FORCE		BIT(1)
+ #define QSGMII_PCS_CH_SPEED_10			0x0
+@@ -78,7 +81,21 @@
+ #define QSGMII_PCS_CH_SPEED_SHIFT(x)		((x) * 4)
+ 
+ #define QSGMII_PCS_CAL_LCKDT_CTL		0x120
+-#define QSGMII_PCS_CAL_LCKDT_CTL_RST		BIT(19)
++#define QSGMII_PCS_CAL_LCKDT_CTL_RST	BIT(19)
++
++/* Additional QSGMII PCS registers for MR53 support */
++#define QSGMII_PCS_MODE_CTL			0x68
++#define QSGMII_PCS_MODE_CTL_AUTONEG_EN(x)	BIT(x)
++#define QSGMII_PCS_CAL_LCKDT_CTL_LCKDT		BIT(0)
++
++/* Per-channel QSGMII PCS channel IDs */
++#define QSGMII_PCS_CHAN0			0
++#define QSGMII_PCS_CHAN1			1
++#define QSGMII_PCS_CHAN2			2
++#define QSGMII_PCS_CHAN3			3
++
++/* NSS GMAC phy-profile values */
++#define NSS_GMAC_PHY_PROFILE_QSGMII		2
+ 
+ /* Only GMAC1/2/3 support SGMII and their CTL register are not contiguous */
+ #define QSGMII_PHY_SGMII_CTL(x)			((x == 1) ? 0x134 : \
+@@ -103,6 +120,8 @@
+ #define QSGMII_PHY_TX_DRV_AMP_MASK		GENMASK(31, 28)
+ #define QSGMII_PHY_TX_DRV_AMP(x)		FIELD_PREP(QSGMII_PHY_TX_DRV_AMP_MASK, (x))
+ 
++#define MDIO_ADDR_NONE 0x20
++
+ struct ipq806x_gmac {
+ 	struct platform_device *pdev;
+ 	struct regmap *nss_common;
+@@ -180,6 +199,7 @@ static int ipq806x_gmac_set_speed(struct
+ 		break;
+ 
+ 	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_QSGMII:
+ 		div = get_clk_div_sgmii(gmac, speed);
+ 		clk_bits = NSS_COMMON_CLK_GATE_GMII_RX_EN(gmac->id) |
+ 			   NSS_COMMON_CLK_GATE_GMII_TX_EN(gmac->id);
+@@ -211,9 +231,97 @@ static int ipq806x_gmac_set_speed(struct
+ 	return 0;
+ }
+ 
++/*
++ * Configure QSGMII PCS for a specific channel
++ * Based on NSS GMAC driver qsgmii_pcs_init()
++ */
++static int ipq806x_gmac_configure_qsgmii_channel(struct ipq806x_gmac *gmac)
++{
++	struct device *dev = &gmac->pdev->dev;
++	u32 val, val_readback;
++	int ret;
++
++	if (gmac->phy_mode != PHY_INTERFACE_MODE_QSGMII)
++		return 0;
++
++	if (gmac->id != 0) /* only gmac0 sets this up */
++		return 0;
++
++	regmap_read(gmac->qsgmii_csr, QSGMII_PCS_ALL_CH_CTL, &val);
++
++	if (val != 0 && val != 0xf) {
++		dev_info(dev, "GMAC%d: QSGMII already configured (0x%08x), not touching\n",
++		         gmac->id, val);
++		return 0;
++	}
++
++	dev_dbg(dev, "Configuring QSGMII PCS channel for GMAC%d\n", gmac->id);
++
++	/* Enable this QSGMII channel */
++	dev_info(dev, "GMAC%d: ALL_CH_CTL before enable: 0x%08x\n", gmac->id, val);
++
++	val |= QSGMII_PCS_ALL_CH_CTL_CH_EN(gmac->id);
++	regmap_write(gmac->qsgmii_csr, QSGMII_PCS_ALL_CH_CTL, val);
++
++	/* READ BACK to verify the write succeeded */
++	regmap_read(gmac->qsgmii_csr, QSGMII_PCS_ALL_CH_CTL, &val_readback);
++	dev_info(dev, "GMAC%d: ALL_CH_CTL after enable: 0x%08x (wrote 0x%08x)\n",
++	         gmac->id, val_readback, val);
++
++	/* Check if write failed */
++	if (val_readback == 0xf000aaaa) {
++		dev_err(dev, "GMAC%d: QSGMII register write FAILED! (regmap issue?)\n", gmac->id);
++		/* Try to continue anyway */
++	}
++
++	usleep_range(1000, 2000);
++
++	/* Read current calibration state */
++	regmap_read(gmac->qsgmii_csr, QSGMII_PCS_CAL_LCKDT_CTL, &val);
++	dev_dbg(dev, "CAL_LCKDT_CTL initial: 0x%08x\n", val);
++
++	/* Release reset if asserted, preserving other bits */
++	if (val & QSGMII_PCS_CAL_LCKDT_CTL_RST) {
++		val &= ~QSGMII_PCS_CAL_LCKDT_CTL_RST;
++		regmap_write(gmac->qsgmii_csr, QSGMII_PCS_CAL_LCKDT_CTL, val);
++		usleep_range(1000, 2000);
++		regmap_read(gmac->qsgmii_csr, QSGMII_PCS_CAL_LCKDT_CTL, &val);
++	}
++
++	/* Already locked - nothing to do */
++	if (val & QSGMII_PCS_CAL_LCKDT_CTL_LCKDT) {
++		dev_dbg(dev, "QSGMII PCS channel %d already locked\n", gmac->id);
++		return 0;
++	}
++
++ 	/* Enable autoneg for this channel */
++ 	regmap_read(gmac->qsgmii_csr, QSGMII_PCS_MODE_CTL, &val);
++ 	val |= QSGMII_PCS_MODE_CTL_AUTONEG_EN(gmac->id);
++ 	regmap_write(gmac->qsgmii_csr, QSGMII_PCS_MODE_CTL, val);
++ 	dev_info(dev, "Set MODE_CTL: 0x%08x\n", val);
++
++	usleep_range(10000, 20000);
++
++ 	/* Wait for calibration lock */
++ 	ret = regmap_read_poll_timeout(gmac->qsgmii_csr,
++ 					   QSGMII_PCS_CAL_LCKDT_CTL, val,
++ 					   val & QSGMII_PCS_CAL_LCKDT_CTL_LCKDT,
++ 					   1000, 200000);
++
++ 	regmap_read(gmac->qsgmii_csr, QSGMII_PCS_CAL_LCKDT_CTL, &val);
++ 	dev_info(dev, "Final CAL_LCKDT_CTL: 0x%08x (%s)\n",
++ 		 val, ret ? "timeout" : "locked");
++
++ 	if (ret)
++ 		dev_warn(dev, "Continuing despite calibration timeout\n");
++
++	return 0;	/* Always continue - hardware may work anyway */
++}
++
+ static int ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
+ {
+ 	struct device *dev = &gmac->pdev->dev;
++
+ 	int ret;
+ 
+ 	ret = of_get_phy_mode(dev->of_node, &gmac->phy_mode);
+@@ -330,31 +438,32 @@ ipq806x_gmac_configure_qsgmii_params(str
+ {
+ 	struct platform_device *pdev = gmac->pdev;
+ 	const struct soc_device_attribute *soc;
+-	struct device *dev = &pdev->dev;
+ 	u32 qsgmii_param;
+ 
+ 	switch (gmac->id) {
++	case 0:
+ 	case 1:
+ 		soc = soc_device_match(ipq806x_gmac_soc_v1);
+ 
+ 		if (soc)
+ 			qsgmii_param = QSGMII_PHY_TX_DRV_AMP(0xc) |
+-				       QSGMII_PHY_TX_SLEW(0x2) |
+-				       QSGMII_PHY_DEEMPHASIS_LVL(0x2);
++					   QSGMII_PHY_TX_SLEW(0x2) |
++					   QSGMII_PHY_DEEMPHASIS_LVL(0x2);
+ 		else
+ 			qsgmii_param = QSGMII_PHY_TX_DRV_AMP(0xd) |
+-				       QSGMII_PHY_TX_SLEW(0x0) |
+-				       QSGMII_PHY_DEEMPHASIS_LVL(0x0);
++					   QSGMII_PHY_TX_SLEW(0x0) |
++					   QSGMII_PHY_DEEMPHASIS_LVL(0x0);
+ 
+ 		qsgmii_param |= QSGMII_PHY_RX_DC_BIAS(0x2);
+ 		break;
+ 	case 2:
+ 	case 3:
+ 		qsgmii_param = QSGMII_PHY_RX_DC_BIAS(0x3) |
+-			       QSGMII_PHY_TX_DRV_AMP(0xc);
++				   QSGMII_PHY_TX_DRV_AMP(0xc);
+ 		break;
+-	default: /* gmac 0 can't be set in SGMII mode */
+-		dev_err(dev, "gmac id %d can't be in SGMII mode", gmac->id);
++	default:
++		dev_err(&pdev->dev, "invalid gmac id %d for SGMII/QSGMII mode\n",
++			gmac->id);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -369,7 +478,7 @@ ipq806x_gmac_configure_qsgmii_params(str
+ 			QSGMII_PHY_CDR_PI_SLEW(0x2);
+ 
+ 	regmap_write(gmac->qsgmii_csr, QSGMII_PHY_SGMII_CTL(gmac->id),
+-		     qsgmii_param);
++			 qsgmii_param);
+ 
+ 	return 0;
+ }
+@@ -403,12 +512,9 @@ static int ipq806x_gmac_probe(struct pla
+ 		return err;
+ 	}
+ 
+-	regmap_write(gmac->qsgmii_csr, QSGMII_PCS_CAL_LCKDT_CTL,
+-		     QSGMII_PCS_CAL_LCKDT_CTL_RST);
+-
+ 	/* Inter frame gap is set to 12 */
+ 	val = 12 << NSS_COMMON_GMAC_CTL_IFG_OFFSET |
+-	      12 << NSS_COMMON_GMAC_CTL_IFG_LIMIT_OFFSET;
++		  12 << NSS_COMMON_GMAC_CTL_IFG_LIMIT_OFFSET;
+ 	/* We also initiate an AXI low power exit request */
+ 	val |= NSS_COMMON_GMAC_CTL_CSYS_REQ;
+ 	switch (gmac->phy_mode) {
+@@ -419,6 +525,7 @@ static int ipq806x_gmac_probe(struct pla
+ 		val |= NSS_COMMON_GMAC_CTL_PHY_IFACE_SEL;
+ 		break;
+ 	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_QSGMII:
+ 		val &= ~NSS_COMMON_GMAC_CTL_PHY_IFACE_SEL;
+ 		break;
+ 	default:
+@@ -441,6 +548,10 @@ static int ipq806x_gmac_probe(struct pla
+ 		val |= NSS_COMMON_CLK_SRC_CTRL_SGMII(gmac->id) <<
+ 			NSS_COMMON_CLK_SRC_CTRL_OFFSET(gmac->id);
+ 		break;
++	case PHY_INTERFACE_MODE_QSGMII:
++		val |= NSS_COMMON_CLK_SRC_CTRL_QSGMII(gmac->id) <<
++			NSS_COMMON_CLK_SRC_CTRL_OFFSET(gmac->id);
++		break;
+ 	default:
+ 		goto err_unsupported_phy;
+ 	}
+@@ -458,22 +569,30 @@ static int ipq806x_gmac_probe(struct pla
+ 			NSS_COMMON_CLK_GATE_RGMII_TX_EN(gmac->id);
+ 		break;
+ 	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_QSGMII:
+ 		val |= NSS_COMMON_CLK_GATE_GMII_RX_EN(gmac->id) |
+ 				NSS_COMMON_CLK_GATE_GMII_TX_EN(gmac->id);
+ 		break;
+ 	default:
+ 		goto err_unsupported_phy;
+ 	}
++
+ 	regmap_write(gmac->nss_common, NSS_COMMON_CLK_GATE, val);
++	switch (gmac->phy_mode) {
++	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_QSGMII:
++		if ((err = ipq806x_gmac_configure_qsgmii_params(gmac)))
++			return err;
+ 
+-	if (gmac->phy_mode == PHY_INTERFACE_MODE_SGMII) {
+-		err = ipq806x_gmac_configure_qsgmii_params(gmac);
+-		if (err)
++		if ((err = ipq806x_gmac_configure_qsgmii_pcs_speed(gmac)))
+ 			return err;
+ 
+-		err = ipq806x_gmac_configure_qsgmii_pcs_speed(gmac);
+-		if (err)
++		if ((err = ipq806x_gmac_configure_qsgmii_channel(gmac)))
+ 			return err;
++
++		break;
++	default:
++		break;
+ 	}
+ 
+ 	plat_dat->has_gmac = true;
