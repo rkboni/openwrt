@@ -1,0 +1,33 @@
+Index: linux-6.12.65/drivers/net/bonding/bond_main.c
+===================================================================
+--- linux-6.12.65.orig/drivers/net/bonding/bond_main.c
++++ linux-6.12.65/drivers/net/bonding/bond_main.c
+@@ -2479,6 +2479,7 @@ err_undo_flags:
+ 
+ 	return res;
+ }
++EXPORT_SYMBOL_GPL(bond_enslave);
+ 
+ /* Try to release the slave device <slave> from the bond device <master>
+  * It is legal to access curr_active_slave without a lock because all the function
+@@ -6053,6 +6054,7 @@ void bond_setup(struct net_device *bond_
+ 		bond_dev->features |= BOND_XFRM_FEATURES;
+ #endif /* CONFIG_XFRM_OFFLOAD */
+ }
++EXPORT_SYMBOL_GPL(bond_setup);
+ 
+ /* Destroy a bonding device.
+  * Must be under rtnl_lock when this function is called.
+Index: linux-6.12.65/drivers/net/bonding/bond_options.c
+===================================================================
+--- linux-6.12.65.orig/drivers/net/bonding/bond_options.c
++++ linux-6.12.65/drivers/net/bonding/bond_options.c
+@@ -788,6 +788,8 @@ out:
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(__bond_opt_set);
++
+ /**
+  * __bond_opt_set_notify - set a bonding option
+  * @bond: target bond device
