@@ -1,0 +1,168 @@
+Index: linux-6.12.65/drivers/net/phy/aquantia/aquantia_main.c
+===================================================================
+--- linux-6.12.65.orig/drivers/net/phy/aquantia/aquantia_main.c
++++ linux-6.12.65/drivers/net/phy/aquantia/aquantia_main.c
+@@ -13,6 +13,7 @@
+ #include <linux/bitfield.h>
+ #include <linux/of.h>
+ #include <linux/phy.h>
++#include <linux/of_net.h>
+ 
+ #include "aquantia.h"
+ 
+@@ -415,51 +416,53 @@ static int aqr107_read_rate(struct phy_d
+ 
+ static int aqr107_read_status(struct phy_device *phydev)
+ {
+-	int val, ret;
+-
+-	ret = aqr_read_status(phydev);
+-	if (ret)
+-		return ret;
+-
+-	if (!phydev->link || phydev->autoneg == AUTONEG_DISABLE)
+-		return 0;
+-
+-	val = phy_read_mmd(phydev, MDIO_MMD_PHYXS, MDIO_PHYXS_VEND_IF_STATUS);
+-	if (val < 0)
+-		return val;
+-
+-	switch (FIELD_GET(MDIO_PHYXS_VEND_IF_STATUS_TYPE_MASK, val)) {
+-	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_KR:
+-		phydev->interface = PHY_INTERFACE_MODE_10GKR;
+-		break;
+-	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_KX:
+-		phydev->interface = PHY_INTERFACE_MODE_1000BASEKX;
+-		break;
+-	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_XFI:
+-		phydev->interface = PHY_INTERFACE_MODE_10GBASER;
+-		break;
+-	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_USXGMII:
+-		phydev->interface = PHY_INTERFACE_MODE_USXGMII;
+-		break;
+-	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_XAUI:
+-		phydev->interface = PHY_INTERFACE_MODE_XAUI;
+-		break;
+-	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_SGMII:
+-		phydev->interface = PHY_INTERFACE_MODE_SGMII;
+-		break;
+-	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_RXAUI:
+-		phydev->interface = PHY_INTERFACE_MODE_RXAUI;
+-		break;
+-	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_OCSGMII:
+-		phydev->interface = PHY_INTERFACE_MODE_2500BASEX;
+-		break;
+-	default:
+-		phydev->interface = PHY_INTERFACE_MODE_NA;
+-		break;
+-	}
++    int ret = aqr_read_status(phydev);
++    if (ret)
++        return ret;
++
++    if (!phydev->link || phydev->autoneg == AUTONEG_DISABLE)
++        return 0;
++
++    /* If system interface is fixed via DT, skip changes */
++    if (!of_property_read_bool(phydev->mdio.dev.of_node,
++                               "marvell,fixed-system-interface")) {
++        int val = phy_read_mmd(phydev, MDIO_MMD_PHYXS,
++                           MDIO_PHYXS_VEND_IF_STATUS);
++        if (val < 0)
++            return val;
++
++        switch (FIELD_GET(MDIO_PHYXS_VEND_IF_STATUS_TYPE_MASK, val)) {
++        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_KR:
++            phydev->interface = PHY_INTERFACE_MODE_10GKR;
++            break;
++        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_KX:
++            phydev->interface = PHY_INTERFACE_MODE_1000BASEKX;
++            break;
++        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_XFI:
++            phydev->interface = PHY_INTERFACE_MODE_10GBASER;
++            break;
++        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_USXGMII:
++            phydev->interface = PHY_INTERFACE_MODE_USXGMII;
++            break;
++        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_XAUI:
++            phydev->interface = PHY_INTERFACE_MODE_XAUI;
++            break;
++        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_SGMII:
++            phydev->interface = PHY_INTERFACE_MODE_SGMII;
++            break;
++        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_RXAUI:
++            phydev->interface = PHY_INTERFACE_MODE_RXAUI;
++            break;
++        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_OCSGMII:
++            phydev->interface = PHY_INTERFACE_MODE_2500BASEX;
++            break;
++        default:
++            phydev->interface = PHY_INTERFACE_MODE_NA;
++            break;
++        }
++    }
+ 
+-	/* Read possibly downshifted rate from vendor register */
+-	return aqr107_read_rate(phydev);
++    return aqr107_read_rate(phydev);
+ }
+ 
+ static int aqr107_get_downshift(struct phy_device *phydev, u8 *data)
+@@ -596,6 +599,15 @@ static int aqr107_config_init(struct phy
+ 	u32 led_idx;
+ 	int ret;
+ 
++	if (of_property_read_bool(phydev->mdio.dev.of_node,
++							  "marvell,fixed-system-interface")) {
++		phy_interface_t iface;
++		int err = of_get_phy_mode(phydev->mdio.dev.of_node, &iface);
++		if (!err && iface != PHY_INTERFACE_MODE_NA) {
++			phydev->interface = iface;
++		}
++	}
++
+ 	/* Check that the PHY interface type is compatible */
+ 	if (phydev->interface != PHY_INTERFACE_MODE_SGMII &&
+ 	    phydev->interface != PHY_INTERFACE_MODE_1000BASEKX &&
+@@ -842,13 +854,13 @@ static int aqr113c_fill_interface_modes(
+ 
+ static int aqr115c_get_features(struct phy_device *phydev)
+ {
+-	unsigned long *supported = phydev->supported;
+-
+ 	/* PHY supports speeds up to 2.5G with autoneg. PMA capabilities
+ 	 * are not useful.
+ 	 */
+-	linkmode_or(supported, supported, phy_gbit_features);
+-	linkmode_set_bit(ETHTOOL_LINK_MODE_2500baseT_Full_BIT, supported);
++	linkmode_set_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT, phydev->supported);
++	linkmode_set_bit(ETHTOOL_LINK_MODE_100baseT_Half_BIT, phydev->supported);
++	linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT, phydev->supported);
++	linkmode_set_bit(ETHTOOL_LINK_MODE_2500baseT_Full_BIT, phydev->supported);
+ 
+ 	return 0;
+ }
+@@ -922,12 +934,22 @@ static struct phy_driver aqr_driver[] =
+ {
+ 	PHY_ID_MATCH_MODEL(PHY_ID_AQR105),
+ 	.name		= "Aquantia AQR105",
++	.probe		= aqr107_probe,
++	.get_rate_matching = aqr107_get_rate_matching,
++	.config_init	= aqr107_config_init,
+ 	.config_aneg    = aqr_config_aneg,
+ 	.config_intr	= aqr_config_intr,
+ 	.handle_interrupt = aqr_handle_interrupt,
+-	.read_status	= aqr_read_status,
++	.read_status	= aqr107_read_status,
++	.get_tunable    = aqr107_get_tunable,
++	.set_tunable    = aqr107_set_tunable,
+ 	.suspend	= aqr107_suspend,
+ 	.resume		= aqr107_resume,
++	.get_sset_count	= aqr107_get_sset_count,
++	.get_strings	= aqr107_get_strings,
++	.get_stats	= aqr107_get_stats,
++	.get_features   = aqr111_get_features,
++	.link_change_notify = aqr107_link_change_notify,
+ },
+ {
+ 	PHY_ID_MATCH_MODEL(PHY_ID_AQR106),
