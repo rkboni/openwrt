@@ -55,7 +55,10 @@ meraki,mr52)
 	ucidef_set_led_netdev "eth1" "eth1" "green:lan2" "eth1"
 	;;
 meraki,mr53)
-	ucidef_set_led_netdev "lan" "LAN" "green:user" "lan1 lan2"
+	ucidef_set_led_netdev "lan1-green" "green:lan1" "green:lan1" "lan1" "link_2500 link_5000"
+	ucidef_set_led_netdev "lan1-orange" "orange:lan1" "orange:lan1" "lan1" "tx rx link_1000"
+	ucidef_set_led_netdev "lan2-green" "green:lan2" "green:lan2" "lan2" "link_1000"
+	ucidef_set_led_netdev "lan2-orange" "orange:lan2" "orange:lan2" "lan2" "tx rx link_100"
 	;;	
 nec,wg2600hp)
 	ucidef_set_led_wlan "wlan2g" "WLAN2G" "green:wlan2g" "phy1tpt"
