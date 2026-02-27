@@ -111,10 +111,12 @@ CONFIG_DEFAULT_kmod-hwmon-ina2xx=y
 CONFIG_DEFAULT_kmod-i2c-gpio=y
 CONFIG_DEFAULT_kmod-leds-gpio=y
 CONFIG_DEFAULT_kmod-leds-tlc591xx=y
+CONFIG_DEFAULT_kmod-ledtrigger-netdev=y
 CONFIG_DEFAULT_kmod-nft-offload=y
 CONFIG_DEFAULT_kmod-phy-aquantia=y
 CONFIG_DEFAULT_kmod-phy-at803x=y
-CONFIG_DEFAULT_kmod-switch-phy=y
+CONFIG_DEFAULT_kmod-phy-proxy=y
+CONFIG_DEFAULT_kmod-qca85xx-sw=y
 CONFIG_DEFAULT_libc=y
 CONFIG_DEFAULT_libgcc=y
 CONFIG_DEFAULT_libustream-mbedtls=y
@@ -2203,10 +2205,10 @@ CONFIG_BUSYBOX_CONFIG_CRONTAB=y
 # CONFIG_BUSYBOX_CONFIG_GETFATTR is not set
 # CONFIG_BUSYBOX_CONFIG_HDPARM is not set
 # CONFIG_BUSYBOX_CONFIG_HEXEDIT is not set
-# CONFIG_BUSYBOX_CONFIG_I2CGET is not set
-# CONFIG_BUSYBOX_CONFIG_I2CSET is not set
-# CONFIG_BUSYBOX_CONFIG_I2CDUMP is not set
-# CONFIG_BUSYBOX_CONFIG_I2CDETECT is not set
+CONFIG_BUSYBOX_CONFIG_I2CGET=y
+CONFIG_BUSYBOX_CONFIG_I2CSET=y
+CONFIG_BUSYBOX_CONFIG_I2CDUMP=y
+CONFIG_BUSYBOX_CONFIG_I2CDETECT=y
 # CONFIG_BUSYBOX_CONFIG_I2CTRANSFER is not set
 # CONFIG_BUSYBOX_CONFIG_INOTIFYD is not set
 CONFIG_BUSYBOX_CONFIG_LESS=y
@@ -2260,8 +2262,8 @@ CONFIG_BUSYBOX_CONFIG_VERBOSE_RESOLUTION_ERRORS=y
 # CONFIG_BUSYBOX_CONFIG_FEATURE_ETC_NETWORKS is not set
 # CONFIG_BUSYBOX_CONFIG_FEATURE_ETC_SERVICES is not set
 # CONFIG_BUSYBOX_CONFIG_FEATURE_HWIB is not set
-# CONFIG_BUSYBOX_CONFIG_ARP is not set
-# CONFIG_BUSYBOX_CONFIG_ARPING is not set
+CONFIG_BUSYBOX_CONFIG_ARP=y
+CONFIG_BUSYBOX_CONFIG_ARPING=y
 CONFIG_BUSYBOX_CONFIG_BRCTL=y
 CONFIG_BUSYBOX_CONFIG_FEATURE_BRCTL_FANCY=y
 CONFIG_BUSYBOX_CONFIG_FEATURE_BRCTL_SHOW=y
@@ -2276,7 +2278,7 @@ CONFIG_BUSYBOX_CONFIG_FEATURE_BRCTL_SHOW=y
 CONFIG_BUSYBOX_CONFIG_IFCONFIG=y
 CONFIG_BUSYBOX_CONFIG_FEATURE_IFCONFIG_STATUS=y
 # CONFIG_BUSYBOX_CONFIG_FEATURE_IFCONFIG_SLIP is not set
-# CONFIG_BUSYBOX_CONFIG_FEATURE_IFCONFIG_MEMSTART_IOADDR_IRQ is not set
+CONFIG_BUSYBOX_CONFIG_FEATURE_IFCONFIG_MEMSTART_IOADDR_IRQ=y
 CONFIG_BUSYBOX_CONFIG_FEATURE_IFCONFIG_HW=y
 CONFIG_BUSYBOX_CONFIG_FEATURE_IFCONFIG_BROADCAST_PLUS=y
 # CONFIG_BUSYBOX_CONFIG_IFENSLAVE is not set
@@ -3234,7 +3236,7 @@ CONFIG_PACKAGE_kmod-crypto-hmac=y
 # CONFIG_PACKAGE_kmod-crypto-kpp is not set
 CONFIG_PACKAGE_kmod-crypto-manager=y
 # CONFIG_PACKAGE_kmod-crypto-md4 is not set
-# CONFIG_PACKAGE_kmod-crypto-md5 is not set
+CONFIG_PACKAGE_kmod-crypto-md5=y
 # CONFIG_PACKAGE_kmod-crypto-michael-mic is not set
 # CONFIG_PACKAGE_kmod-crypto-misc is not set
 CONFIG_PACKAGE_kmod-crypto-null=y
@@ -3703,6 +3705,7 @@ CONFIG_PACKAGE_kmod-phy-at803x=y
 # CONFIG_PACKAGE_kmod-phy-micrel is not set
 # CONFIG_PACKAGE_kmod-phy-microchip is not set
 # CONFIG_PACKAGE_kmod-phy-motorcomm is not set
+CONFIG_PACKAGE_kmod-phy-proxy=y
 # CONFIG_PACKAGE_kmod-phy-qca83xx is not set
 # CONFIG_PACKAGE_kmod-phy-realtek is not set
 # CONFIG_PACKAGE_kmod-phy-rtl8261n is not set
@@ -3710,7 +3713,7 @@ CONFIG_PACKAGE_kmod-phy-at803x=y
 # CONFIG_PACKAGE_kmod-phy-vitesse is not set
 CONFIG_PACKAGE_kmod-phylib-qcom=y
 CONFIG_PACKAGE_kmod-phylink=y
-# CONFIG_PACKAGE_kmod-qca85xx-sw is not set
+CONFIG_PACKAGE_kmod-qca85xx-sw=y
 # CONFIG_PACKAGE_kmod-qlcnic is not set
 # CONFIG_PACKAGE_kmod-r6040 is not set
 # CONFIG_PACKAGE_kmod-r8101 is not set
@@ -3737,7 +3740,6 @@ CONFIG_PACKAGE_kmod-phylink=y
 # CONFIG_PACKAGE_kmod-swconfig is not set
 # CONFIG_PACKAGE_kmod-switch-ar8xxx is not set
 # CONFIG_PACKAGE_kmod-switch-ip17xx is not set
-CONFIG_PACKAGE_kmod-switch-phy=y
 # CONFIG_PACKAGE_kmod-switch-rtl8306 is not set
 # CONFIG_PACKAGE_kmod-switch-rtl8366-smi is not set
 # CONFIG_PACKAGE_kmod-switch-rtl8366rb is not set
@@ -7024,16 +7026,18 @@ CONFIG_PACKAGE_ethtool-full=y
 # CONFIG_PACKAGE_ifstat is not set
 # CONFIG_PACKAGE_iftop is not set
 # CONFIG_PACKAGE_iiod is not set
-# CONFIG_PACKAGE_iperf is not set
+CONFIG_PACKAGE_iperf=y
+# CONFIG_IPERF_ENABLE_MULTICAST is not set
 # CONFIG_PACKAGE_iperf3 is not set
 # CONFIG_PACKAGE_iperf3-ssl is not set
 # CONFIG_PACKAGE_ipip is not set
 # CONFIG_PACKAGE_ipset is not set
 # CONFIG_PACKAGE_ipset-dns is not set
 # CONFIG_PACKAGE_iptraf-ng is not set
-# CONFIG_PACKAGE_iputils-arping is not set
+CONFIG_PACKAGE_iputils-arping=y
 # CONFIG_PACKAGE_iputils-clockdiff is not set
-# CONFIG_PACKAGE_iputils-ping is not set
+CONFIG_PACKAGE_iputils-ping=y
+# CONFIG_PING_LEGACY_SYMLINKS is not set
 # CONFIG_PACKAGE_iputils-tracepath is not set
 # CONFIG_PACKAGE_ipvsadm is not set
 # CONFIG_PACKAGE_irtt is not set
@@ -7178,7 +7182,7 @@ CONFIG_PACKAGE_phytool=y
 # CONFIG_PACKAGE_tac_plus is not set
 # CONFIG_PACKAGE_tac_plus-pam is not set
 # CONFIG_PACKAGE_tayga is not set
-# CONFIG_PACKAGE_tcpdump is not set
+CONFIG_PACKAGE_tcpdump=y
 # CONFIG_PACKAGE_tcpdump-mini is not set
 # CONFIG_PACKAGE_teamd is not set
 # CONFIG_PACKAGE_teamdctl is not set
