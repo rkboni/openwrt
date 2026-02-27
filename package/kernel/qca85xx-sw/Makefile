@@ -15,6 +15,7 @@ include $(INCLUDE_DIR)/package.mk
 define KernelPackage/qca85xx-sw
   SUBMENU:=Network Devices
   TITLE:=Driver for QCA85xx Switch Device
+  DEPENDS:=+kmod-libphy +kmod-of-mdio
   FILES:=$(PKG_BUILD_DIR)/qca-85xx-sw.ko
   AUTOLOAD:=$(call AutoProbe,qca-85xx-sw)
 endef
