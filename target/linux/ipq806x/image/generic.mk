@@ -330,8 +330,9 @@ define Device/meraki_mr53
 		ath10k-firmware-qca9984-ct-full-htt \
 		kmod-eeprom-at24 kmod-hwmon-ina2xx \
 		kmod-leds-tlc591xx kmod-i2c-gpio \
+		kmod-ledtrigger-netdev \
 		kmod-phy-aquantia kmod-phy-at803x \
-		kmod-switch-phy
+		kmod-phy-proxy kmod-qca85xx-sw
 	DEVICE_DTS := qcom-ipq8068-mr53
 endef
 TARGET_DEVICES += meraki_mr53
