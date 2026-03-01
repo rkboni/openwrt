@@ -834,7 +834,9 @@ static int qca_85xx_sw_configure_port_isolation(struct qca_85xx_sw_port_isolatio
 		}
 		
 		/* Configure isolation entry */
-		priv->write(iso_ctrl_0(i), ISO_CTRL_0_DEST_PORT_BM(port_bitmap) | ISO_CTRL_0_VALID);
+		priv->write(iso_ctrl_0(i), ISO_CTRL_0_DEST_PORT_BM(port_bitmap) |
+				ISO_CTRL_0_VALID |
+				(profile->profile_id == 2 ? ISO_CTRL_0_PROFILE_2 : ISO_CTRL_0_PROFILE_1));
 		priv->write(iso_ctrl_1(i), ISO_CTRL_1_PKT_TYPE_ALL);
 		priv->write(iso_ctrl_2(i), ISO_CTRL_2_PROFILE_ID(profile->profile_id));
 		
