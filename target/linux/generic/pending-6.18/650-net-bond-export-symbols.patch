@@ -1,7 +1,5 @@
-Index: linux-6.12.65/drivers/net/bonding/bond_main.c
-===================================================================
---- linux-6.12.65.orig/drivers/net/bonding/bond_main.c
-+++ linux-6.12.65/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
 @@ -2479,6 +2479,7 @@ err_undo_flags:
  
  	return res;
@@ -18,10 +16,8 @@ Index: linux-6.12.65/drivers/net/bonding/bond_main.c
  
  /* Destroy a bonding device.
   * Must be under rtnl_lock when this function is called.
-Index: linux-6.12.65/drivers/net/bonding/bond_options.c
-===================================================================
---- linux-6.12.65.orig/drivers/net/bonding/bond_options.c
-+++ linux-6.12.65/drivers/net/bonding/bond_options.c
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
 @@ -788,6 +788,8 @@ out:
  
  	return ret;
