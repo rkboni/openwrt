@@ -137,7 +137,7 @@
 #define SD_CLK_SEL_SGMII_PORT29_RX		0x8000
 
 /* Bit definitions for PORT_STATUS_CFG */
-#define port_status_cfg(n)	(PORT_STATUS_CFG_PORT0 + (n * 0x100))
+#define port_status_cfg(n)	(PORT_STATUS_CFG_PORT0 + ((n) * 0x100))
 #define PORT_STATUS_FORCE_SPEED_10	0x0
 #define PORT_STATUS_FORCE_SPEED_100	0x1
 #define PORT_STATUS_FORCE_SPEED_1000	0x2
@@ -162,7 +162,7 @@
 #define VLAN_TABLE_ENTRY_VALID	0x40000
 
 /* Bit definitions for PORT_EG_VLAN_CTRL */
-#define port_eg_vlan_ctrl(n)	(PORT_EG_VLAN_CTRL + (n * 0x10))
+#define port_eg_vlan_ctrl(n)	(PORT_EG_VLAN_CTRL + ((n) * 0x10))
 #define PORT_EG_VLAN_TYPE_MODE_UNTAGGED		0x0
 #define PORT_EG_VLAN_TYPE_MODE_UNMODIFIED	0x2
 #define PORT_EG_VLAN_TYPE_MODE_SHIFT_LEN	0
@@ -176,9 +176,9 @@
 #define FAILOVER_EN 0x40000
 
 /* Bit definitions for IN_VLAN_TRANSLATION table entries */
-#define in_vlan_table_word_0(m, n)	(IN_VLAN_TRANSLATION_BASE_WORD_0 + (m * 0x100) + (n * 0x10))
-#define in_vlan_table_word_1(m, n)	(IN_VLAN_TRANSLATION_BASE_WORD_1 + (m * 0x100) + (n * 0x10))
-#define in_vlan_table_word_2(m, n)	(IN_VLAN_TRANSLATION_BASE_WORD_2 + (m * 0x100) + (n * 0x10))
+#define in_vlan_table_word_0(m, n)	(IN_VLAN_TRANSLATION_BASE_WORD_0 + ((m) * 0x100) + ((n) * 0x10))
+#define in_vlan_table_word_1(m, n)	(IN_VLAN_TRANSLATION_BASE_WORD_1 + ((m) * 0x100) + ((n) * 0x10))
+#define in_vlan_table_word_2(m, n)	(IN_VLAN_TRANSLATION_BASE_WORD_2 + ((m) * 0x100) + ((n) * 0x10))
 #define IN_VLAN_ENTRY_LOWEST_PRIO	0xF
 
 /* Bit description for in_vlan_table word 0 */
@@ -197,28 +197,28 @@
 #define IN_VLAN_TABLE_ENTRY_VALID	0x80
 
 /* Bit Description for SPANNING_TREE_GROUP */
-#define spanning_tree_group_reg_0(n) (SPANNING_TREE_GROUP_REG_0_GROUP_0 + (n * 0x10))
-#define spanning_tree_group_reg_1(n) (SPANNING_TREE_GROUP_REG_1_GROUP_0 + (n * 0x10))
+#define spanning_tree_group_reg_0(n) (SPANNING_TREE_GROUP_REG_0_GROUP_0 + ((n) * 0x10))
+#define spanning_tree_group_reg_1(n) (SPANNING_TREE_GROUP_REG_1_GROUP_0 + ((n) * 0x10))
 #define PORT_DISABLE	0x0
 #define PORT_BLOCKING	0x1
 #define PORT_LEARNING	0x2
 #define PORT_FORWARDING	0x3
 
 /* Bit description for EG_VLAN_TAG table entries */
-#define eg_vlan_tag(n)	(EG_VLAN_TAG_ENTRY_0 + (n * 0x10))
+#define eg_vlan_tag(n)	(EG_VLAN_TAG_ENTRY_0 + ((n) * 0x10))
 #define EG_VLAN_TAG_TABLE_ENTRY_VALID	0x40000000
 
 /* Bit definitions for TRUNK_GROUP_MEM table */
-#define trunk_group_mem_0(n) (TRUNK_GROUP_MEM_REG_0_TRUNK_ID_0 + (n * 0x10))
-#define trunk_group_mem_1(n) (TRUNK_GROUP_MEM_REG_1_TRUNK_ID_0 + (n * 0x10))
-#define trunk_group_mem_2(n) (TRUNK_GROUP_MEM_REG_2_TRUNK_ID_0 + (n * 0x10))
+#define trunk_group_mem_0(n) (TRUNK_GROUP_MEM_REG_0_TRUNK_ID_0 + ((n) * 0x10))
+#define trunk_group_mem_1(n) (TRUNK_GROUP_MEM_REG_1_TRUNK_ID_0 + ((n) * 0x10))
+#define trunk_group_mem_2(n) (TRUNK_GROUP_MEM_REG_2_TRUNK_ID_0 + ((n) * 0x10))
 #define TRUNK_MEM_PORT_ID_SHIFT_LEN	12
 
 /* Bit definitions for TRUNK_LOCAL_PORT_MEM table entries */
-#define trunk_local_port_mem(n) (TRUNK_LOCAL_PORT_MEM_TRUNK_ID_0 + (n * 0x10))
+#define trunk_local_port_mem(n) (TRUNK_LOCAL_PORT_MEM_TRUNK_ID_0 + ((n) * 0x10))
 
 /* Bit definitions for PORT_TRUNK_CFG */
-#define port_trunk_cfg(n)	(PORT_TRUNK_CFG_PORT0 + (n * 0x10))
+#define port_trunk_cfg(n)	(PORT_TRUNK_CFG_PORT0 + ((n) * 0x10))
 #define PORT_TRUNK_ID_MASK	0x7
 #define PORT_TRUNK_EN		0x20
 
@@ -379,6 +379,11 @@ enum qca_85xx_sw_mib_op {
 #define iso_ctrl_0(n)			(ISO_CTRL_0_ENTRY0 + ((n) * 0x10))
 #define iso_ctrl_1(n)			(ISO_CTRL_1_ENTRY0 + ((n) * 0x10))
 #define iso_ctrl_2(n)			(ISO_CTRL_2_ENTRY0 + ((n) * 0x10))
+
+/* ISO_CTRL_0 profile selector bits - verified against Meraki reference.
+ * Pattern for additional profiles is unverified - do not extrapolate. */
+#define ISO_CTRL_0_PROFILE_1    BIT(27)
+#define ISO_CTRL_0_PROFILE_2    BIT(26)
 
 /* Bit definitions for ISO_CTRL_0 */
 #define ISO_CTRL_0_DEST_PORT_BM(x)	((x) & 0x3FFFFFFF)

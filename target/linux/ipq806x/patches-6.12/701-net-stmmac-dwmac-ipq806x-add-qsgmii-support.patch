@@ -1,7 +1,5 @@
-Index: linux-6.12.65/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-===================================================================
---- linux-6.12.65.orig/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ linux-6.12.65/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
 @@ -420,6 +420,7 @@ stmmac_probe_config_dt(struct platform_d
  	struct plat_stmmacenet_data *plat;
  	struct stmmac_dma_cfg *dma_cfg;
@@ -46,10 +44,8 @@ Index: linux-6.12.65/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
  	}
  
  	stmmac_res->addr = devm_platform_ioremap_resource(pdev, 0);
-Index: linux-6.12.65/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-===================================================================
---- linux-6.12.65.orig/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ linux-6.12.65/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 @@ -7806,6 +7806,10 @@ int stmmac_dvr_probe(struct device *devi
  		goto error_phy_setup;
  	}
@@ -61,10 +57,8 @@ Index: linux-6.12.65/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
  	ret = register_netdev(ndev);
  	if (ret) {
  		dev_err(priv->device, "%s: ERROR %i registering the device\n",
-Index: linux-6.12.65/include/linux/stmmac.h
-===================================================================
---- linux-6.12.65.orig/include/linux/stmmac.h
-+++ linux-6.12.65/include/linux/stmmac.h
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
 @@ -220,6 +220,7 @@ struct plat_stmmacenet_data {
  	int maxmtu;
  	int multicast_filter_bins;
