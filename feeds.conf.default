@@ -1,7 +1,3 @@
-#src-git packages https://github.com/openwrt/packages.git^3f7daf56610aa4788761530942d5155172ef0622
-#src-git luci https://github.com/openwrt/luci.git
-#src-git routing https://git.openwrt.org/feed/routing.git^d0f6265f6f32d44753c22474c11cc16a76a5d512
-
-src-git packages git@github.com:slow-boat/packages.git;ipq-working
-src-git luci git@github.com:slow-boat/luci.git;noppp-working
+src-git luci https://github.com/slow-boat/luci.git;noppp-working
+src-git packages https://github.com/slow-boat/packages.git;ipq-working
 src-git routing https://git.openwrt.org/feed/routing.git^bdf571c0ea5b9b029707787e0f89be7bbd3d75e3
