@@ -17,7 +17,7 @@ define KernelPackage/phy-proxy
   TITLE:=Virtual Network Phy Proxy
   FILES:=$(PKG_BUILD_DIR)/phy-proxy.ko
   AUTOLOAD:=$(call AutoProbe,phy-proxy)
-  DEPENDS:=+kmod-bonding +kmod-phylink
+  DEPENDS:=+kmod-bonding +kmod-phylink +kmod-of-mdio
 endef
 
 define KernelPackage/phy-proxy/description
