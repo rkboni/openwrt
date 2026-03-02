@@ -1,7 +1,7 @@
 # Modifications and conveniences
 - `configs` directory contains useful starting points for some platforms enabling enough features to get up and running with luci and wifi where supported.
 - just link the config you want to .config and go from there. Any changes then you can commit.
-	- `ln -s configs/.config.habanero .config`
+	- `ln -s configs/.config.mr53 .config`
 - QCA wifi platforms choose high throughput CT non-commercial firmware, and support for 80211r. Make sure this is for private use or CT might get upset, otherwise go back to the open version.
 - feeds are pinned to specific versions- so we know it builds
 - some new packages are added for device porting, as well as kernel patches.
