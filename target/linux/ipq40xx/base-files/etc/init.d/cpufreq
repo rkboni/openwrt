@@ -2,7 +2,7 @@
 
 START=15
 
-target_min=600000
+target_min=500000
 
 get_min_freq() {
 	local available=$(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_available_frequencies)
