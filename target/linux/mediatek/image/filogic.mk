@@ -139,6 +139,13 @@ define Build/cetron-header
 	rm $@.tmp
 endef
 
+define Build/tenda-mkdualimageheader
+	printf '%b' "\x47\x6f\x64\x31\x00\x00\x00\x00" >"$@.new"
+	gzip -c "$@" | tail -c8 >>"$@.new"
+	cat "$@" >>"$@.new"
+	mv "$@.new" "$@"
+endef
+
 define Device/abt_asr3000
   DEVICE_VENDOR := ABT
   DEVICE_MODEL := ASR3000
@@ -665,7 +672,7 @@ define Device/bananapi_bpi-r4-common
   DEVICE_DTS_OVERLAY:= mt7988a-bananapi-bpi-r4-emmc mt7988a-bananapi-bpi-r4-rtc mt7988a-bananapi-bpi-r4-sd
   DEVICE_DTC_FLAGS := --pad 4096
   DEVICE_PACKAGES := kmod-hwmon-pwmfan kmod-i2c-mux-pca954x kmod-eeprom-at24 kmod-mt7996-firmware kmod-mt7996-233-firmware \
-		     kmod-rtc-pcf8563 kmod-sfp kmod-usb3 e2fsprogs f2fsck mkf2fs mt7988-wo-firmware
+		     kmod-rtc-pcf8563 kmod-sfp kmod-phy-aquantia kmod-usb3 e2fsprogs f2fsck mkf2fs mt7988-wo-firmware
   DEVICE_COMPAT_VERSION := 1.1
   DEVICE_COMPAT_MESSAGE := The non-switch ports were renamed to match the board/case labels
   IMAGES := sysupgrade.itb
@@ -673,12 +680,15 @@ define Device/bananapi_bpi-r4-common
   KERNEL_INITRAMFS_SUFFIX := -recovery.itb
   ARTIFACTS := \
 	       emmc-gpt.bin emmc-preloader.bin emmc-bl31-uboot.fip \
-	       sdcard.img.gz \
+	       emmc-preloader-8g.bin snand-preloader-8g.bin \
+	       sdcard.img.gz sdcard_8g.img.gz\
 	       snand-preloader.bin snand-bl31-uboot.fip
   ARTIFACT/emmc-gpt.bin		:= mt798x-gpt emmc
   ARTIFACT/emmc-preloader.bin	:= mt7988-bl2 emmc-comb
+  ARTIFACT/emmc-preloader-8g.bin	:= mt7988-bl2 emmc-comb-4bg
   ARTIFACT/emmc-bl31-uboot.fip	:= mt7988-bl31-uboot $$(DEVICE_NAME)-emmc
   ARTIFACT/snand-preloader.bin	:= mt7988-bl2 spim-nand-ubi-comb
+  ARTIFACT/snand-preloader-8g.bin	:= mt7988-bl2 spim-nand-ubi-comb-4bg
   ARTIFACT/snand-bl31-uboot.fip	:= mt7988-bl31-uboot $$(DEVICE_NAME)-snand
   ARTIFACT/sdcard.img.gz	:= mt798x-gpt sdmmc |\
 				   pad-to 17k | mt7988-bl2 sdmmc-comb |\
@@ -689,6 +699,21 @@ define Device/bananapi_bpi-r4-common
 				   pad-to 44M | mt7988-bl2 spim-nand-ubi-comb |\
 				   pad-to 45M | mt7988-bl31-uboot $$(DEVICE_NAME)-snand |\
 				   pad-to 51M | mt7988-bl2 emmc-comb |\
+				   pad-to 52M | mt7988-bl31-uboot $$(DEVICE_NAME)-emmc |\
+				   pad-to 56M | mt798x-gpt emmc |\
+				$(if $(CONFIG_TARGET_ROOTFS_SQUASHFS),\
+				   pad-to 64M | append-image squashfs-sysupgrade.itb | check-size |\
+				) \
+				  gzip
+  ARTIFACT/sdcard_8g.img.gz	:= mt798x-gpt sdmmc |\
+				   pad-to 17k | mt7988-bl2 sdmmc-comb-4bg |\
+				   pad-to 6656k | mt7988-bl31-uboot $$(DEVICE_NAME)-sdmmc |\
+				$(if $(CONFIG_TARGET_ROOTFS_INITRAMFS),\
+				   pad-to 12M | append-image-stage initramfs-recovery.itb | check-size 44m |\
+				) \
+				   pad-to 44M | mt7988-bl2 spim-nand-ubi-comb-4bg |\
+				   pad-to 45M | mt7988-bl31-uboot $$(DEVICE_NAME)-snand |\
+				   pad-to 51M | mt7988-bl2 emmc-comb-4bg |\
 				   pad-to 52M | mt7988-bl31-uboot $$(DEVICE_NAME)-emmc |\
 				   pad-to 56M | mt798x-gpt emmc |\
 				$(if $(CONFIG_TARGET_ROOTFS_SQUASHFS),\
@@ -779,6 +804,31 @@ ifeq ($(DUMP),)
 endif
 endef
 TARGET_DEVICES += bananapi_bpi-r4-lite
+
+define Device/bazis_ax3000wm
+  DEVICE_VENDOR := Bazis
+  DEVICE_MODEL := AX3000WM
+  DEVICE_DTS := mt7981b-bazis-ax3000wm
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  UBOOTENV_IN_UBI := 1
+  IMAGES := sysupgrade.itb
+  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
+  KERNEL := kernel-bin | gzip
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGE/sysupgrade.itb := append-kernel | \
+	fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | \
+	append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  ARTIFACTS := preloader.bin bl31-uboot.fip
+  ARTIFACT/preloader.bin := mt7981-bl2 spim-nand-ddr3
+  ARTIFACT/bl31-uboot.fip := mt7981-bl31-uboot bazis-ax3000wm
+endef
+TARGET_DEVICES += bazis_ax3000wm
 
 define Device/buffalo_wsr-6000ax8
   DEVICE_MODEL := WSR-6000AX8
@@ -1071,7 +1121,7 @@ define Device/cudy_ap3000-v1
   IMAGE_SIZE := 65536k
   KERNEL_IN_UBI := 1
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-phy-motorcomm
 endef
 TARGET_DEVICES += cudy_ap3000-v1
 
@@ -1735,6 +1785,32 @@ define Device/kebidumei_ax3000-u22
 endef
 TARGET_DEVICES += kebidumei_ax3000-u22
 
+define Device/keenetic_kap-630-common
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware \
+		kmod-phy-airoha-en8811h
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_SIZE := 6144k
+  IMAGE_SIZE := 108544k
+  KERNEL := kernel-bin | lzma | fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb | \
+	append-squashfs4-fakeroot
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$(KERNEL_SIZE) | \
+	append-ubi | check-size | zyimage -d $$(ZYIMAGE_ID) -v "$$(DEVICE_MODEL)"
+endef
+
+define Device/keenetic_kap-630
+  DEVICE_VENDOR := Keenetic
+  DEVICE_MODEL := KAP-630
+  DEVICE_DTS := mt7981b-keenetic-kap-630
+  ZYIMAGE_ID := 0x810630
+  $(call Device/keenetic_kap-630-common)
+endef
+TARGET_DEVICES += keenetic_kap-630
+
 define Device/keenetic_kn-1812-common
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-mt7992-firmware kmod-usb3 \
@@ -2154,6 +2230,9 @@ TARGET_DEVICES += netcore_n60
 define Device/netcore_n60-pro
   DEVICE_VENDOR := Netcore
   DEVICE_MODEL := N60 Pro
+  DEVICE_ALT0_VENDOR := netis
+  DEVICE_ALT0_MODEL := NX62
+  DEVICE_ALT0_VARIANT := V1
   DEVICE_DTS := mt7986a-netcore-n60-pro
   DEVICE_DTS_DIR := ../dts
   UBINIZE_OPTS := -E 5
@@ -2174,6 +2253,15 @@ define Device/netcore_n60-pro
   ARTIFACT/bl31-uboot.fip := mt7986-bl31-uboot netcore_n60-pro
 endef
 TARGET_DEVICES += netcore_n60-pro
+
+define Device/netcraze_nap-630
+  DEVICE_VENDOR := Netcraze
+  DEVICE_MODEL := NAP-630
+  DEVICE_DTS := mt7981b-netcraze-nap-630
+  ZYIMAGE_ID := 0xC10630
+  $(call Device/keenetic_kap-630-common)
+endef
+TARGET_DEVICES += netcraze_nap-630
 
 define Device/netcraze_nc-1812
   DEVICE_VENDOR := Netcraze
@@ -2299,6 +2387,32 @@ define Device/netis_nx31
   ARTIFACT/bl31-uboot.fip := mt7981-bl31-uboot netis_nx31
 endef
 TARGET_DEVICES += netis_nx31
+
+define Device/netis_nx32u
+  DEVICE_VENDOR := netis
+  DEVICE_MODEL := NX32U
+  DEVICE_DTS := mt7981b-netis-nx32u
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  UBOOTENV_IN_UBI := 1
+  IMAGES := sysupgrade.itb
+  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
+  KERNEL := kernel-bin | gzip
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGE/sysupgrade.itb := append-kernel | \
+	fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | \
+	append-metadata
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware \
+	kmod-usb3 kmod-usb-ledtrig-usbport
+  ARTIFACTS := preloader.bin bl31-uboot.fip
+  ARTIFACT/preloader.bin := mt7981-bl2 spim-nand-ddr3
+  ARTIFACT/bl31-uboot.fip := mt7981-bl31-uboot netis_nx32u
+endef
+TARGET_DEVICES += netis_nx32u
 
 define Device/nokia_ea0326gmp
   DEVICE_VENDOR := Nokia
@@ -2595,6 +2709,22 @@ define Device/tenbay_wr3000k
 endef
 TARGET_DEVICES += tenbay_wr3000k
 
+define Device/tenda_be12-pro
+  DEVICE_VENDOR := Tenda
+  DEVICE_MODEL := BE12 Pro
+  DEVICE_DTS := mt7987a-tenda-be12-pro
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware airoha-en8811h-firmware kmod-phy-airoha-en8811h kmod-mt7992-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_LOADADDR := 0x40000000
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+        fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGE/sysupgrade.bin := append-kernel | tenda-mkdualimageheader | sysupgrade-tar kernel=$$$$@ | append-metadata
+endef
+TARGET_DEVICES += tenda_be12-pro
+
 define Device/totolink_x6000r
   DEVICE_VENDOR := TOTOLINK
   DEVICE_MODEL := X6000R
@@ -2650,6 +2780,25 @@ define Device/tplink_be450
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += tplink_be450
+
+define Device/tplink_eap683-lr
+  DEVICE_VENDOR := TP-Link
+  DEVICE_MODEL := EAP683-LR
+  DEVICE_ALT0_VENDOR := TP-Link
+  DEVICE_ALT0_MODEL := EAP683-UR
+  DEVICE_DTS := mt7986a-tplink-eap683-lr
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 39424k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tplink_eap683-lr
 
 define Device/tplink_re6000xd
   DEVICE_VENDOR := TP-Link
@@ -3199,3 +3348,31 @@ define Device/zyxel_nwa50ax-pro
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += zyxel_nwa50ax-pro
+
+define Device/zyxel_wx5600-t0-ubootmod
+  DEVICE_VENDOR := Zyxel
+  DEVICE_MODEL := WX5600-T0
+  DEVICE_VARIANT := (OpenWrt U-Boot layout)
+  DEVICE_DTS := mt7986b-zyxel-wx5600-t0-ubootmod
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
+  IMAGES := sysupgrade.itb
+  BLOCKSIZE := 256k
+  PAGESIZE := 4096
+  KERNEL_IN_UBI := 1
+  UBOOTENV_IN_UBI := 1
+  KERNEL := kernel-bin | lzma
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+        fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd
+  IMAGE/sysupgrade.itb := append-kernel | \
+        fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | append-metadata
+  ARTIFACTS := preloader.bin bl31-uboot.fip
+  ARTIFACT/preloader.bin := mt7986-bl2 spim-nand-4k-ddr3
+  ARTIFACT/bl31-uboot.fip := mt7986-bl31-uboot zyxel_wx5600-t0
+ifneq ($(CONFIG_TARGET_ROOTFS_INITRAMFS),)
+  ARTIFACTS += initramfs-factory.ubi
+  ARTIFACT/initramfs-factory.ubi := append-image-stage initramfs-recovery.itb | ubinize-kernel
+endif
+endef
+TARGET_DEVICES += zyxel_wx5600-t0-ubootmod

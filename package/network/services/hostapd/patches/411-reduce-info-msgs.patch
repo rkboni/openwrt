@@ -1,0 +1,40 @@
+Index: hostapd-2026.02.27~8dbef087/src/ap/rrm.c
+===================================================================
+--- a/src/ap/rrm.c
++++ b/src/ap/rrm.c
+@@ -87,7 +87,7 @@ static void hostapd_handle_beacon_report
+ 	report[0] = '\0';
+ 	if (wpa_snprintf_hex(report, sizeof(report), pos, len) < 0)
+ 		return;
+-	wpa_msg(hapd->msg_ctx, MSG_INFO, BEACON_RESP_RX MACSTR " %u %02x %s",
++	wpa_msg(hapd->msg_ctx, MSG_DEBUG, BEACON_RESP_RX MACSTR " %u %02x %s",
+ 		MAC2STR(addr), token, rep_mode, report);
+ }
+ 
+@@ -376,7 +376,7 @@ static void hostapd_handle_link_mesr_rep
+ 			     pos, end - pos) < 0)
+ 		return;
+ 
+-	wpa_msg(hapd->msg_ctx, MSG_INFO, LINK_MSR_RESP_RX MACSTR " %u %s",
++	wpa_msg(hapd->msg_ctx, MSG_DEBUG, LINK_MSR_RESP_RX MACSTR " %u %s",
+ 		MAC2STR(mgmt->sa), report->dialog_token, report_msg);
+ }
+ 
+@@ -572,7 +572,7 @@ int hostapd_send_range_req(struct hostap
+ 		nr = hostapd_neighbor_get(hapd, responders + ETH_ALEN * i,
+ 					  NULL);
+ 		if (!nr) {
+-			wpa_printf(MSG_INFO, "Missing neighbor report for "
++			wpa_printf(MSG_DEBUG, "Missing neighbor report for "
+ 				   MACSTR, MAC2STR(responders + ETH_ALEN * i));
+ 			wpabuf_free(buf);
+ 			return -1;
+@@ -720,7 +720,7 @@ void hostapd_rrm_beacon_req_tx_status(st
+ {
+ 	if (len < 24 + 3)
+ 		return;
+-	wpa_msg(hapd->msg_ctx, MSG_INFO, BEACON_REQ_TX_STATUS MACSTR
++	wpa_msg(hapd->msg_ctx, MSG_DEBUG, BEACON_REQ_TX_STATUS MACSTR
+ 		" %u ack=%d", MAC2STR(mgmt->da),
+ 		mgmt->u.action.u.rrm.dialog_token, ok);
+ }

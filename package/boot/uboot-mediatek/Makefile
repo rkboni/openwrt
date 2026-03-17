@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
-PKG_VERSION:=2025.10
-PKG_HASH:=b4f032848e56cc8f213ad59f9132c084dbbb632bc29176d024e58220e0efdf4a
+PKG_VERSION:=2026.01
+PKG_HASH:=b60d5865cefdbc75da8da4156c56c458e00de75a49b80c1a2e58a96e30ad0d54
 PKG_BUILD_DEPENDS:=!(TARGET_ramips||TARGET_mediatek_mt7623):arm-trusted-firmware-tools/host
 
 UBOOT_USE_INTREE_DTC:=1
@@ -231,6 +231,18 @@ define U-Boot/mt7981_abt_asr3000
   DEPENDS:=+trusted-firmware-a-mt7981-spim-nand-ddr3
 endef
 
+define U-Boot/mt7981_bazis-ax3000wm
+  NAME:=BAZIS AX3000WM
+  BUILD_SUBTARGET:=filogic
+  BUILD_DEVICES:=bazis_ax3000wm
+  UBOOT_CONFIG:=mt7981_bazis_ax3000wm
+  UBOOT_IMAGE:=u-boot.fip
+  BL2_BOOTDEV:=spim-nand
+  BL2_SOC:=mt7981
+  BL2_DDRTYPE:=ddr3
+  DEPENDS:=+trusted-firmware-a-mt7981-spim-nand-ddr3
+endef
+
 define U-Boot/mt7981_cmcc_a10
   NAME:=CMCC A10
   BUILD_SUBTARGET:=filogic
@@ -426,6 +438,18 @@ define U-Boot/mt7981_netis_nx31
   BUILD_SUBTARGET:=filogic
   BUILD_DEVICES:=netis_nx31
   UBOOT_CONFIG:=mt7981_netis_nx31
+  UBOOT_IMAGE:=u-boot.fip
+  BL2_BOOTDEV:=spim-nand
+  BL2_SOC:=mt7981
+  BL2_DDRTYPE:=ddr3
+  DEPENDS:=+trusted-firmware-a-mt7981-spim-nand-ddr3
+endef
+
+define U-Boot/mt7981_netis_nx32u
+  NAME:=netis NX32U
+  BUILD_SUBTARGET:=filogic
+  BUILD_DEVICES:=netis_nx32u
+  UBOOT_CONFIG:=mt7981_netis_nx32u
   UBOOT_IMAGE:=u-boot.fip
   BL2_BOOTDEV:=spim-nand
   BL2_SOC:=mt7981
@@ -832,6 +856,18 @@ define U-Boot/mt7986_zyxel_ex5601-t0
   DEPENDS:=+trusted-firmware-a-mt7986-spim-nand-4k-ddr4
 endef
 
+define U-Boot/mt7986_zyxel_wx5600-t0
+  NAME:=Zyxel WX5600-T0
+  BUILD_SUBTARGET:=filogic
+  BUILD_DEVICES:=zyxel_wx5600-t0-ubootmod
+  UBOOT_CONFIG:=mt7986_zyxel_wx5600-t0
+  UBOOT_IMAGE:=u-boot.fip
+  BL2_BOOTDEV:=spim-nand-4k
+  BL2_SOC:=mt7986
+  BL2_DDRTYPE:=ddr3
+  DEPENDS:=+trusted-firmware-a-mt7986-spim-nand-4k-ddr3
+endef
+
 define U-Boot/mt7987_bananapi_bpi-r4-lite-emmc
   NAME:=BananaPi BPi-R4 Lite
   BUILD_SUBTARGET:=filogic
@@ -925,7 +961,7 @@ define U-Boot/mt7988_bananapi_bpi-r4-emmc
   BL2_BOOTDEV:=emmc
   BL2_SOC:=mt7988
   BL2_DDRTYPE:=comb
-  DEPENDS:=+trusted-firmware-a-mt7988-emmc-comb
+  DEPENDS:=+trusted-firmware-a-mt7988-emmc-comb +trusted-firmware-a-mt7988-emmc-comb-4bg
 endef
 
 define U-Boot/mt7988_bananapi_bpi-r4-sdmmc
@@ -937,7 +973,7 @@ define U-Boot/mt7988_bananapi_bpi-r4-sdmmc
   BL2_BOOTDEV:=sdmmc
   BL2_SOC:=mt7988
   BL2_DDRTYPE:=comb
-  DEPENDS:=+trusted-firmware-a-mt7988-sdmmc-comb
+  DEPENDS:=+trusted-firmware-a-mt7988-sdmmc-comb +trusted-firmware-a-mt7988-sdmmc-comb-4bg
 endef
 
 define U-Boot/mt7988_bananapi_bpi-r4-snand
@@ -949,7 +985,7 @@ define U-Boot/mt7988_bananapi_bpi-r4-snand
   BL2_BOOTDEV:=spim-nand-ubi
   BL2_SOC:=mt7988
   BL2_DDRTYPE:=comb
-  DEPENDS:=+trusted-firmware-a-mt7988-spim-nand-ubi-comb
+  DEPENDS:=+trusted-firmware-a-mt7988-spim-nand-ubi-comb +trusted-firmware-a-mt7988-spim-nand-ubi-comb-4bg
 endef
 
 define U-Boot/mt7988_bananapi_bpi-r4-poe-emmc
@@ -961,7 +997,7 @@ define U-Boot/mt7988_bananapi_bpi-r4-poe-emmc
   BL2_BOOTDEV:=emmc
   BL2_SOC:=mt7988
   BL2_DDRTYPE:=comb
-  DEPENDS:=+trusted-firmware-a-mt7988-emmc-comb
+  DEPENDS:=+trusted-firmware-a-mt7988-emmc-comb +trusted-firmware-a-mt7988-emmc-comb-4bg
 endef
 
 define U-Boot/mt7988_bananapi_bpi-r4-poe-sdmmc
@@ -973,7 +1009,7 @@ define U-Boot/mt7988_bananapi_bpi-r4-poe-sdmmc
   BL2_BOOTDEV:=sdmmc
   BL2_SOC:=mt7988
   BL2_DDRTYPE:=comb
-  DEPENDS:=+trusted-firmware-a-mt7988-sdmmc-comb
+  DEPENDS:=+trusted-firmware-a-mt7988-sdmmc-comb +trusted-firmware-a-mt7988-sdmmc-comb-4bg
 endef
 
 define U-Boot/mt7988_bananapi_bpi-r4-poe-snand
@@ -985,7 +1021,7 @@ define U-Boot/mt7988_bananapi_bpi-r4-poe-snand
   BL2_BOOTDEV:=spim-nand-ubi
   BL2_SOC:=mt7988
   BL2_DDRTYPE:=comb
-  DEPENDS:=+trusted-firmware-a-mt7988-spim-nand-ubi-comb
+  DEPENDS:=+trusted-firmware-a-mt7988-spim-nand-ubi-comb +trusted-firmware-a-mt7988-spim-nand-ubi-comb-4bg
 endef
 
 define U-Boot/mt7987_rfb-emmc
@@ -1106,6 +1142,7 @@ UBOOT_TARGETS := \
 	mt7628_ravpower_rp-wd009 \
 	mt7629_rfb \
 	mt7981_abt_asr3000 \
+	mt7981_bazis-ax3000wm \
 	mt7981_cmcc_a10 \
 	mt7981_cmcc_rax3000m-emmc-ddr3 \
 	mt7981_cmcc_rax3000m-emmc-ddr4 \
@@ -1124,6 +1161,7 @@ UBOOT_TARGETS := \
 	mt7981_konka_komi-a31 \
 	mt7981_netis_nx30v2 \
 	mt7981_netis_nx31 \
+	mt7981_netis_nx32u \
 	mt7981_nokia_ea0326gmp \
 	mt7981_openwrt_one-snand \
 	mt7981_openwrt_one-nor \
@@ -1155,6 +1193,7 @@ UBOOT_TARGETS := \
 	mt7986_tplink_tl-xtr8488 \
 	mt7986_xiaomi_redmi-router-ax6000 \
 	mt7986_zyxel_ex5601-t0 \
+	mt7986_zyxel_wx5600-t0 \
 	mt7986_rfb \
 	mt7987_bananapi_bpi-r4-lite-emmc \
 	mt7987_bananapi_bpi-r4-lite-sdmmc \

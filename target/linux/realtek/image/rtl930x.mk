@@ -2,11 +2,6 @@
 
 include ./common.mk
 
-define Build/xikestor-nosimg
-  $(STAGING_DIR_HOST)/bin/nosimg-enc -i $@ -o $@.new
-  mv $@.new $@
-endef
-
 define Device/hasivo_s1100w-8xgt-se
   SOC := rtl9303
   DEVICE_VENDOR := Hasivo
@@ -15,6 +10,15 @@ define Device/hasivo_s1100w-8xgt-se
   $(Device/kernel-lzma)
 endef
 TARGET_DEVICES += hasivo_s1100w-8xgt-se
+
+define Device/hasivo_s1100wp-8gt-se
+  SOC := rtl9303
+  DEVICE_VENDOR := Hasivo
+  DEVICE_MODEL := S1100WP-8GT-SE
+  IMAGE_SIZE := 12288k
+  $(Device/kernel-lzma)
+endef
+TARGET_DEVICES += hasivo_s1100wp-8gt-se
 
 define Device/plasmacloud-common
   SOC := rtl9302
@@ -71,6 +75,25 @@ define Device/vimin_vm-s100-0800ms
 endef
 TARGET_DEVICES += vimin_vm-s100-0800ms
 
+define Device/xikestor_sks8300-8t
+  SOC := rtl9303
+  UIMAGE_MAGIC := 0x93000000
+  DEVICE_VENDOR := XikeStor
+  DEVICE_MODEL := SKS8300-8T
+  DEVICE_PACKAGES := kmod-hwmon-lm75
+  IMAGE_SIZE := 20480k
+  $(Device/kernel-lzma)
+  IMAGE/sysupgrade.bin := \
+    pad-extra 16 | \
+    append-kernel | \
+    pad-to 64k | \
+    append-rootfs | \
+    pad-rootfs | \
+    check-size | \
+    append-metadata
+endef
+TARGET_DEVICES += xikestor_sks8300-8t
+
 define Device/xikestor_sks8300-8x
   SOC := rtl9303
   DEVICE_VENDOR := XikeStor
@@ -86,11 +109,30 @@ define Device/xikestor_sks8300-8x
 endef
 TARGET_DEVICES += xikestor_sks8300-8x
 
+define Device/xikestor_sks8300-12e2t2x
+  SOC := rtl9302
+  UIMAGE_MAGIC := 0x93000000
+  DEVICE_VENDOR := XikeStor
+  DEVICE_MODEL := SKS8300-12E2T2X
+  IMAGE_SIZE := 20480k
+  $(Device/kernel-lzma)
+  IMAGE/sysupgrade.bin := \
+    pad-extra 16 | \
+    append-kernel | \
+    pad-to 64k | \
+    append-rootfs | \
+    pad-rootfs | \
+    check-size | \
+    append-metadata
+endef
+TARGET_DEVICES += xikestor_sks8300-12e2t2x
+
 define Device/xikestor_sks8310-8x
   SOC := rtl9303
   UIMAGE_MAGIC := 0x93000000
   DEVICE_VENDOR := XikeStor
   DEVICE_MODEL := SKS8310-8X
+  DEVICE_PACKAGES := kmod-hwmon-lm75
   IMAGE_SIZE := 20480k
   $(Device/kernel-lzma)
   IMAGE/sysupgrade.bin := \
