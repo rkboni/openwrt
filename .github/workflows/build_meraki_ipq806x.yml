@@ -44,7 +44,7 @@ jobs:
               run:  sh genconfig-ipq806x.sh
 
             - name: Build firmware images
-              run: make -j$(($(nproc)+1)) world
+              run: make -j1 V=s world
 
             - name: Get SHA
               uses: benjlevesque/short-sha@v2.2
