@@ -24,7 +24,6 @@ echo CONFIG_PACKAGE_kmod-eeprom-at24=y >> .config
 echo CONFIG_PACKAGE_kmod-gpio-button-hotplug=y >> .config
 echo CONFIG_PACKAGE_kmod-hwmon-ina2xx=y >> .config
 echo CONFIG_PACKAGE_kmod-leds-gpio=y >> .config
-echo CONFIG_PACKAGE_kmod-ledtrigger-netdev=y >> .config
 echo CONFIG_PACKAGE_kmod-nft-offload=y >> .config
 echo CONFIG_PACKAGE_kmod-phy-aquantia=y >> .config
 echo CONFIG_PACKAGE_kmod-phy-at803x=y >> .config
