@@ -1840,8 +1840,8 @@ static struct net_device *qca_85xx_sw_get_eth_dev(struct platform_device *pdev)
 		return NULL;
 	}
 
-	printk(KERN_INFO "%s: Found netdev %s for SGMII+ PHY\n", __func__,
-	       phydev->attached_dev->name);
+	printk(KERN_INFO "%s: Found netdev %s for SGMII+ PHY %s (%s)\n", __func__,
+	       phydev->attached_dev->name, phydev_name(phydev), phydev->drv->name);
 
 	return phydev->attached_dev;
 }
