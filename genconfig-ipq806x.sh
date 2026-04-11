@@ -9,9 +9,14 @@ echo CONFIG_TARGET_ALL_PROFILES=n >> .config
 echo CONFIG_TARGET_MULTI_PROFILE=y >> .config
 echo CONFIG_TARGET_DEVICE_${arch}_generic_DEVICE_meraki_mr42=y >> .config
 echo CONFIG_TARGET_DEVICE_${arch}_generic_DEVICE_meraki_mr52=y >> .config
+echo CONFIG_TARGET_DEVICE_${arch}_generic_DEVICE_meraki_mr53=y >> .config
 echo CONFIG_TARGET_DEVICE_PACKAGES_${arch}_generic_DEVICE_meraki_mr42=\"\" >> .config
 echo CONFIG_TARGET_DEVICE_PACKAGES_${arch}_generic_DEVICE_meraki_mr52=\"\" >> .config
+echo CONFIG_TARGET_DEVICE_PACKAGES_${arch}_generic_DEVICE_meraki_mr53=\"\" >> .config
 
-#add luci
+#add luci, tcpdump, iperf3 & some kmods
 echo CONFIG_PACKAGE_luci=y >> .config
+echo CONFIG_PACKAGE_iperf3=y >> .config
+echo CONFIG_PACKAGE_tcpdump=y >> .config
+echo CONFIG_PACKAGE_mdio-tools=y >> .config
 make defconfig
