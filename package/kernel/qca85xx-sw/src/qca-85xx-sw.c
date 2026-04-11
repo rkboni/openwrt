@@ -189,6 +189,8 @@ static void qca_85xx_sw_sgmii_plus_if_change_speed(struct net_device *dev)
 	int chip_id =  phy_read(dev->phydev,
 				    MII_ADDR_C45 | AQ_PHY_GLOBAL_CHIP_ID);
 
+	printk(KERN_INFO "qca_85xx_sw: sgmii_plus_if_change_speed: curr_speed %x curr_duplex %d, curr_version %x, chip_id %x", curr_speed, curr_duplex, curr_version, chip_id);
+
 	if (curr_speed == priv->sgmii_plus_link_speed &&
 	    curr_duplex == priv->sgmii_plus_duplex)
 		return;
@@ -254,13 +256,17 @@ static void qca_85xx_sw_sgmii_plus_if_change_speed(struct net_device *dev)
 			chip_id == AQ_PHY_CHIP_ID_AQR_109) {
 			/* Enable auto-neg, disable force mode */
 			sgmii_ctrl0_val |= SGMII_CTRL0_MR_AN_EN;
+
+			printk(KERN_INFO "qca_85xx_sw: sgmii_plus_if_change_speed: enabling auto-neg on port 27 (known chip ID versions)");
 		} else {
 			/* Disable auto-neg, enable force mode */
 			sgmii_ctrl0_val |= SGMII_CTRL0_FORCE_MODE_EN;
+			printk(KERN_INFO "qca_85xx_sw: sgmii_plus_if_change_speed: enabling force mode on port 27");
 		}
 	} else if (curr_speed == SPEED_1000) {
 		/* Enable auto-neg, disable force mode */
 		sgmii_ctrl0_val |= SGMII_CTRL0_MR_AN_EN;
+		printk(KERN_INFO "qca_85xx_sw: sgmii_plus_if_change_speed: enabling auto-neg on port 27");
 	} else {
 		/* Force the 100Mbps link speed and duplex setting */
 		sgmii_ctrl0_val |= SGMII_CTRL0_SGMII_MODE_MAC |
@@ -274,6 +280,7 @@ static void qca_85xx_sw_sgmii_plus_if_change_speed(struct net_device *dev)
 			sgmii_ctrl0_val |= SGMII_CTRL0_FORCE_DUPLEX_FULL;
 			val |=  PORT_STATUS_FORCE_DUPLEX_FULL;
 		}
+		printk(KERN_INFO "qca_85xx_sw: sgmii_plus_if_change_speed: setting 100Mbps, setting MAC mode, enabling auto-neg, disabling force mode on port 27");
 	}
 
 	priv->write(port_status_cfg(priv->sgmii_plus_port_num), val);
@@ -293,6 +300,8 @@ static int qca_85xx_sw_init_qsgmii_port(struct qca_85xx_sw_qsgmii_cfg *qcfg)
 	if (qcfg->port_base > (priv->chip->max_qsgmii_if * 4))
 		return -EINVAL;
 
+
+	printk(KERN_INFO "qca_85xx_sw: initializing qsgmii ports at %d, is_forced: %d, forced_speed: %x", qcfg->port_base, qcfg->is_speed_forced, qcfg->forced_speed);
 	switch (qcfg->port_base) {
 	case QCA_85XX_SW_PORT_1:
 		group_num = 0;
@@ -423,6 +432,8 @@ static int qca_85xx_sw_init_qsgmii_port(struct qca_85xx_sw_qsgmii_cfg *qcfg)
 static int qca_85xx_sw_init_sgmii_port(enum qca_85xx_sw_gmac_port port,
 					struct qca_85xx_sw_sgmii_cfg *sgmii_cfg)
 {
+	printk(KERN_INFO "qca_85xx_sw: initializing sgmii(+) port %d, mode %d, is_speed_forced %d, forced_speed %x", port, sgmii_cfg->port_mode, sgmii_cfg->is_speed_forced, sgmii_cfg->forced_speed);
+
 	uint32_t val, sgmii_ctrl0_reg, sgmii_ctrl0_val, sd_clk_sel_val;
 
 	/* Set the port to either SGMII or SGMII+ mode in GLOBAL_CTRL_1 */
@@ -442,8 +453,8 @@ static int qca_85xx_sw_init_sgmii_port(enum qca_85xx_sw_gmac_port port,
 		}
 		break;
 	case QCA_85XX_SW_PORT_27:
-		sd_clk_sel_val |= SD_CLK_SEL_SGMII_PORT27_RX;
 		sgmii_ctrl0_reg = SGMII_CTRL0_PORT27;
+		sd_clk_sel_val |= SD_CLK_SEL_SGMII_PORT27_RX;
 		if (sgmii_cfg->port_mode == QCA_85XX_SW_PORT_MODE_SGMII_PLUS) {
 			val |= GLOBAL_CTRL_1_PORT_27_SGMII_PLUS_EN;
 			val &= ~(GLOBAL_CTRL_1_PORT_27_SGMII_EN);
@@ -453,8 +464,8 @@ static int qca_85xx_sw_init_sgmii_port(enum qca_85xx_sw_gmac_port port,
 		}
 		break;
 	case QCA_85XX_SW_PORT_28:
-		sd_clk_sel_val |= SD_CLK_SEL_SGMII_PORT28_RX;
 		sgmii_ctrl0_reg = SGMII_CTRL0_PORT28;
+		sd_clk_sel_val |= SD_CLK_SEL_SGMII_PORT28_RX;
 		if (sgmii_cfg->port_mode == QCA_85XX_SW_PORT_MODE_SGMII_PLUS) {
 			val |= GLOBAL_CTRL_1_PORT_28_SGMII_PLUS_EN;
 			val &= ~(GLOBAL_CTRL_1_PORT_28_SGMII_EN);
@@ -464,8 +475,8 @@ static int qca_85xx_sw_init_sgmii_port(enum qca_85xx_sw_gmac_port port,
 		}
 		break;
 	case QCA_85XX_SW_PORT_29:
-		sd_clk_sel_val |= SD_CLK_SEL_SGMII_PORT29_RX;
 		sgmii_ctrl0_reg = SGMII_CTRL0_PORT29;
+		sd_clk_sel_val |= SD_CLK_SEL_SGMII_PORT29_RX;
 		if (sgmii_cfg->port_mode == QCA_85XX_SW_PORT_MODE_SGMII_PLUS) {
 			val |= GLOBAL_CTRL_1_PORT_29_SGMII_PLUS_EN;
 			val &= ~(GLOBAL_CTRL_1_PORT_29_SGMII_EN);
@@ -1060,7 +1071,7 @@ static uint32_t qca_85xx_sw_mii_read(uint32_t reg_addr)
 	tmp_val = (uint32_t) mdiobus_read(bus, phy_addr, phy_reg);
 	reg_val |= (tmp_val << 16);
 
-	/* printk(KERN_INFO "qca_85xx_sw read 0x%x : 0x%08x\n", reg_addr, reg_val); */
+	printk(KERN_INFO "qca_85xx_sw read 0x%x : 0x%08x\n", reg_addr, reg_val);
 	return reg_val;
 }
 
@@ -1073,7 +1084,7 @@ static void qca_85xx_sw_mii_write(uint32_t reg_addr, uint32_t reg_val)
 	uint16_t phy_val;
 	uint8_t phy_reg;
 
-	/* printk(KERN_INFO "qca_85xx_sw write 0x%x : 0x%08x\n", reg_addr, reg_val); */
+	printk(KERN_INFO "qca_85xx_sw write 0x%x : 0x%08x\n", reg_addr, reg_val);
 	/* Change reg_addr to 16-bit word address,
 	 * 32-bit aligned
 	 */
