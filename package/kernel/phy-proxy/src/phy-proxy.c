@@ -155,6 +155,14 @@ static int phy_proxy_open(struct net_device *dev)
 
 	/* If we have a bond, just register RX handler - bond manages its slaves */
 	if (priv->bond_dev) {
+		if (!priv->phydev)
+			netdev_warn(dev, "open: no PHY attached (bond=%s)\n",
+				    priv->bond_dev->name);
+		else
+			netdev_info(dev, "open: PHY %s link=%d (bond=%s)\n",
+				    phydev_name(priv->phydev), priv->phydev->link,
+				    priv->bond_dev->name);
+
 		/* Open the bond when lan2 comes up - it's our transport layer */
 		if (!(priv->bond_dev->flags & IFF_UP)) {
 			err = dev_open(priv->bond_dev, NULL);
@@ -630,6 +638,11 @@ static int phy_proxy_probe(struct platform_device *pdev)
 		goto err_free_stats;
 	}
 
+	dev_info(dev, "PHY found: %s mdio.addr=%d iface=%d attached=%s\n",
+		 phydev_name(priv->phydev), priv->phydev->mdio.addr, iface,
+		 priv->phydev->attached_dev ?
+		 netdev_name(priv->phydev->attached_dev) : "none");
+
 	/* Parse bond configuration if multiple parents */
 	if (priv->num_parents > 1) {
 		of_property_read_string(np, "bond-mode",
@@ -641,6 +654,11 @@ static int phy_proxy_probe(struct platform_device *pdev)
 		if (!bond_name)
 			bond_name = "bond-cpu";
 
+		dev_info(dev, "Bonded config: %u parents, bond-name=%s bond-mode=%s bond-xmit-hash=%s\n",
+			 priv->num_parents, bond_name,
+			 priv->bond_mode[0] ? priv->bond_mode : "(default)",
+			 priv->bond_xmit_hash[0] ? priv->bond_xmit_hash : "(default)");
+
 		/* Create bond - it will take its MAC from first slave naturally */
 		rtnl_lock();
 		err = phy_proxy_create_bond(priv, bond_name);
@@ -650,6 +668,10 @@ static int phy_proxy_probe(struct platform_device *pdev)
 			dev_err(dev, "Failed to create bond: %d\n", err);
 			goto err_put_phy;
 		}
+
+		dev_info(dev, "Bond ready: %s flags=0x%lx mac=%pM (%u parent netdevs)\n",
+			 priv->bond_dev->name, priv->bond_dev->flags,
+			 priv->bond_dev->dev_addr, priv->num_parents);
 
 		/* Take MAC from bond which got it from first slave */
 		ether_addr_copy(priv->mac_addr, priv->bond_dev->dev_addr);
@@ -675,12 +697,29 @@ static int phy_proxy_probe(struct platform_device *pdev)
 		goto err_destroy_bond;
 	}
 
+	dev_info(dev, "Preparing PHY attach: netdev=%s flags=0x%lx mac=%pM%s%s\n",
+		 netdev->name, netdev->flags, netdev->dev_addr,
+		 priv->bond_dev ? " bond=" : "",
+		 priv->bond_dev ? priv->bond_dev->name : "");
+
 	/* Attach PHY with interface mode from PHY DT node */
 	err = phy_attach_direct(netdev, priv->phydev, 0, iface);
 	if (err) {
-		dev_err(dev, "Failed to attach PHY: %d\n", err);
+		dev_err(dev, "phy_attach_direct(%s, %s, iface=%d) failed: %d\n",
+			netdev->name, phydev_name(priv->phydev), iface, err);
+		if (priv->phydev->attached_dev)
+			dev_err(dev, "  PHY still attached to %s\n",
+				netdev_name(priv->phydev->attached_dev));
+		if (priv->bond_dev)
+			dev_err(dev, "  bond %s flags=0x%lx\n",
+				priv->bond_dev->name, priv->bond_dev->flags);
 		goto err_unregister_netdev;
 	}
+
+	dev_info(dev, "PHY attached: %s -> %s (phydev->attached_dev=%s)\n",
+		 phydev_name(priv->phydev), netdev->name,
+		 priv->phydev->attached_dev ?
+		 netdev_name(priv->phydev->attached_dev) : "none");
 
 	priv->phydev->adjust_link = phy_proxy_adjust_link;
 	phy_support_asym_pause(priv->phydev);
