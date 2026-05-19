@@ -669,7 +669,7 @@ static int phy_proxy_probe(struct platform_device *pdev)
 			goto err_put_phy;
 		}
 
-		dev_info(dev, "Bond ready: %s flags=0x%lx mac=%pM (%u parent netdevs)\n",
+		dev_info(dev, "Bond ready: %s flags=0x%x mac=%pM (%u parent netdevs)\n",
 			 priv->bond_dev->name, priv->bond_dev->flags,
 			 priv->bond_dev->dev_addr, priv->num_parents);
 
@@ -697,7 +697,7 @@ static int phy_proxy_probe(struct platform_device *pdev)
 		goto err_destroy_bond;
 	}
 
-	dev_info(dev, "Preparing PHY attach: netdev=%s flags=0x%lx mac=%pM%s%s\n",
+	dev_info(dev, "Preparing PHY attach: netdev=%s flags=0x%x mac=%pM%s%s\n",
 		 netdev->name, netdev->flags, netdev->dev_addr,
 		 priv->bond_dev ? " bond=" : "",
 		 priv->bond_dev ? priv->bond_dev->name : "");
@@ -711,7 +711,7 @@ static int phy_proxy_probe(struct platform_device *pdev)
 			dev_err(dev, "  PHY still attached to %s\n",
 				netdev_name(priv->phydev->attached_dev));
 		if (priv->bond_dev)
-			dev_err(dev, "  bond %s flags=0x%lx\n",
+			dev_err(dev, "  bond %s flags=0x%x\n",
 				priv->bond_dev->name, priv->bond_dev->flags);
 		goto err_unregister_netdev;
 	}
