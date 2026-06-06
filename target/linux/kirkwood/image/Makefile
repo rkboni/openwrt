@@ -7,6 +7,16 @@ include $(INCLUDE_DIR)/image.mk
 
 KERNEL_LOADADDR:=0x8000
 
+define Build/buffalo-kernel-ubifs
+	rm -rf $@-ubidir
+	mkdir -p $@-ubidir
+	mv $@ $@-ubidir/uImage.buffalo
+	touch $@
+	$(call Build/append-uImage-fakehdr, ramdisk)
+	mv $@ $@-ubidir/initrd.buffalo
+	$(STAGING_DIR_HOST)/bin/mkfs.ubifs $(KERNEL_UBIFS_OPTS) -r $@-ubidir $@
+endef
+
 # Some info about Ctera firmware:
 # 1. It's simple tar file (GNU standard), but it must have ".firm" suffix.
 # 2. It contains two images: kernel and romdisk. Both are required.
@@ -125,6 +135,21 @@ define Device/Default
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
   IMAGE/factory.bin := append-ubi
 endef
+
+define Device/buffalo_linkstation-lswvl
+  $(Device/NAND-512K)
+  DEVICE_VENDOR := Buffalo
+  DEVICE_MODEL := LinkStation LS-WVL
+  KERNEL_UBIFS_OPTS = -m $$(PAGESIZE) -e 124KiB -c 172 -x none
+  KERNEL := kernel-bin | append-dtb | uImage none | buffalo-kernel-ubifs
+  KERNEL_INITRAMFS := kernel-bin | append-dtb | uImage none
+  KERNEL_LOADADDR := 0X1A00000
+  DEVICE_PACKAGES :=  \
+    kmod-rtc-mv kmod-hwmon-gpiofan kmod-hwmon-drivetemp kmod-md-mod \
+    kmod-md-raid0 kmod-md-raid1 kmod-md-raid10 kmod-fs-xfs mdadm \
+    mkf2fs e2fsprogs partx-utils
+endef
+TARGET_DEVICES += buffalo_linkstation-lswvl
 
 define Device/checkpoint_l-50
   DEVICE_VENDOR := Check Point
