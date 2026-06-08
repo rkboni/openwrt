@@ -5,8 +5,6 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
-KERNEL_LOADADDR:=0x8000
-
 define Build/buffalo-kernel-ubifs
 	rm -rf $@-ubidir
 	mkdir -p $@-ubidir
@@ -127,6 +125,7 @@ define Device/Default
   KERNEL_NAME := zImage
   KERNEL_SUFFIX  := -uImage
   KERNEL_IN_UBI := 1
+  KERNEL_LOADADDR := 0x8000
 
   PAGESIZE := 2048
   SUBPAGESIZE := 512
