@@ -629,13 +629,38 @@ static void qca_ppe_port_bridge_leave(struct dsa_switch *ds, int port,
 	bridge_vsi_put(priv, bvsi);
 }
 
+static u16 qca_ppe_get_vsi_from_db(struct qca_ppe_priv *priv,
+				    const struct dsa_db *db, int port)
+{
+	struct qca_ppe_bridge_vsi *bvsi;
+
+	if (!db)
+		return port;
+
+	switch (db->type) {
+	case DSA_DB_PORT:
+		return port;
+	case DSA_DB_BRIDGE:
+		bvsi = bridge_vsi_find(priv, db->bridge.dev);
+		if (bvsi)
+			return bvsi->vsi;
+		break;
+	default:
+		break;
+	}
+
+	return port;
+}
+
 static int qca_ppe_port_fdb_add(struct dsa_switch *ds, int port,
 				    const unsigned char *addr, u16 vid,
 				    struct dsa_db db)
 {
 	struct qca_ppe_priv *priv = ds_to_priv(ds);
+	u16 vsi;
 
-	return ppe_fdb_op(priv, addr, port, vid, PPE_FDB_OP_ADD);
+	vsi = qca_ppe_get_vsi_from_db(priv, &db, vid);
+	return ppe_fdb_op(priv, addr, port, vsi, PPE_FDB_OP_ADD);
 }
 
 static int qca_ppe_port_fdb_del(struct dsa_switch *ds, int port,
@@ -643,8 +668,10 @@ static int qca_ppe_port_fdb_del(struct dsa_switch *ds, int port,
 				    struct dsa_db db)
 {
 	struct qca_ppe_priv *priv = ds_to_priv(ds);
+	u16 vsi;
 
-	return ppe_fdb_op(priv, addr, port, vid, PPE_FDB_OP_DEL);
+	vsi = qca_ppe_get_vsi_from_db(priv, &db, vid);
+	return ppe_fdb_op(priv, addr, port, vsi, PPE_FDB_OP_DEL);
 }
 
 static int qca_ppe_port_fdb_dump(struct dsa_switch *ds, int port,
