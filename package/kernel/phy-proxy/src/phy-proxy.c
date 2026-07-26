@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Virtual Switch PHY Network Device Driver
- * 
+ *
  * Creates virtual network devices that:
  * - Show real PHY link status from switch-connected PHYs
  * - Forward data to/from parent netdevs (single or bonded)
@@ -33,8 +33,8 @@ struct phy_proxy_priv {
 
 	/* For multi-parent: create internal bond */
 	struct net_device *bond_dev;
-	char bond_mode[32];
-	char bond_xmit_hash[32];
+	const char* bond_mode;
+	const char* bond_xmit_hash;
 
 	/* Statistics */
 	struct pcpu_sw_netstats __percpu *stats;
@@ -337,12 +337,6 @@ static int phy_proxy_parse_parents(struct phy_proxy_priv *priv,
 				platform_device_put(parent_pdev);
 				return -EPROBE_DEFER;
 			}
-			if(count == 1){
-				dev_info(&priv->pdev->dev, "mac = %s\n", priv->parent_devs[i]->name);
-			} else {
-				dev_info(&priv->pdev->dev, "mac%d = %s\n",
-						i, priv->parent_devs[i]->name);
-			}
 			platform_device_put(parent_pdev);
 		}
 	}
@@ -362,7 +356,7 @@ static int phy_proxy_create_bond(struct phy_proxy_priv *priv,
 	int xmit_policy = BOND_XMIT_POLICY_LAYER23;
 
 	/* Parse bond mode from DT */
-	if (strlen(priv->bond_mode) > 0) {
+	if (priv->bond_mode != NULL) {
 		if (strcmp(priv->bond_mode, "balance-rr") == 0)
 			bond_mode = BOND_MODE_ROUNDROBIN;
 		else if (strcmp(priv->bond_mode, "active-backup") == 0)
@@ -380,7 +374,7 @@ static int phy_proxy_create_bond(struct phy_proxy_priv *priv,
 	}
 
 	/* Parse xmit hash policy from DT */
-	if (strlen(priv->bond_xmit_hash) > 0) {
+	if (priv->bond_xmit_hash != NULL) {
 		if (strcmp(priv->bond_xmit_hash, "layer2") == 0)
 			xmit_policy = BOND_XMIT_POLICY_LAYER2;
 		else if (strcmp(priv->bond_xmit_hash, "layer3+4") == 0)
@@ -455,9 +449,6 @@ static int phy_proxy_create_bond(struct phy_proxy_priv *priv,
 				dev_err(&priv->pdev->dev, "  %s\n", extack._msg);
 			continue;
 		}
-
-		dev_info(&priv->pdev->dev, "%s -> %s\n",
-				priv->parent_devs[i]->name, bond_dev->name);
 	}
 
 	priv->bond_dev = bond_dev;
@@ -632,14 +623,18 @@ static int phy_proxy_probe(struct platform_device *pdev)
 
 	/* Parse bond configuration if multiple parents */
 	if (priv->num_parents > 1) {
-		of_property_read_string(np, "bond-mode",
-				(const char **)&priv->bond_mode);
+		of_property_read_string(np, "bond-mode", &priv->bond_mode);
 		of_property_read_string(np, "bond-xmit-hash",
-				(const char **)&priv->bond_xmit_hash);
+				&priv->bond_xmit_hash);
 		of_property_read_string(np, "bond-name", &bond_name);
 
 		if (!bond_name)
 			bond_name = "bond-cpu";
+
+		dev_info(dev, "Bonded config: %u parents, bond-name=%s bond-mode=%s bond-xmit-hash=%s\n",
+			 priv->num_parents, bond_name,
+			 priv->bond_mode != NULL ? priv->bond_mode : "(default)",
+			 priv->bond_xmit_hash != NULL ? priv->bond_xmit_hash : "(default)");
 
 		/* Create bond - it will take its MAC from first slave naturally */
 		rtnl_lock();
@@ -678,7 +673,10 @@ static int phy_proxy_probe(struct platform_device *pdev)
 	/* Attach PHY with interface mode from PHY DT node */
 	err = phy_attach_direct(netdev, priv->phydev, 0, iface);
 	if (err) {
-		dev_err(dev, "Failed to attach PHY: %d\n", err);
+		dev_err(dev, "phy_attach_direct(%s, %s (%s), iface=%d) failed: %d\n",
+			netdev->name, phydev_name(priv->phydev),
+			priv->phydev->drv->name,
+			iface, err);
 		goto err_unregister_netdev;
 	}
 
@@ -689,8 +687,9 @@ static int phy_proxy_probe(struct platform_device *pdev)
 	priv->phydev->autoneg = AUTONEG_ENABLE;
 	linkmode_copy(priv->phydev->advertising, priv->phydev->supported);
 
-	dev_info(dev, "Created %s with MAC %pM for %s PHY (iface=%d, %d parent%s%s)\n",
+	dev_info(dev, "Created %s with MAC %pM for PHY %s (%s) (iface=%d, %d parent%s%s)\n",
 			netdev->name, priv->mac_addr, phydev_name(priv->phydev),
+			priv->phydev->drv->name,
 			iface, priv->num_parents,
 			priv->num_parents > 1 ? "s" : "",
 			priv->bond_dev ? ", using bond" : "");
