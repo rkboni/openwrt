@@ -29,14 +29,6 @@
  	}
  
 @@ -738,7 +743,6 @@ int stmmac_get_platform_resources(struct
- 	if (stmmac_res->lpi_irq < 0) {
- 		if (stmmac_res->lpi_irq == -EPROBE_DEFER)
- 			return -EPROBE_DEFER;
--		dev_info(&pdev->dev, "IRQ eth_lpi not found\n");
- 	}
- 
- 	stmmac_res->sfty_irq =
-@@ -746,7 +750,6 @@ int stmmac_get_platform_resources(struct
  	if (stmmac_res->sfty_irq < 0) {
  		if (stmmac_res->sfty_irq == -EPROBE_DEFER)
  			return -EPROBE_DEFER;
@@ -46,7 +38,7 @@
  	stmmac_res->addr = devm_platform_ioremap_resource(pdev, 0);
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -7806,6 +7806,10 @@ int stmmac_dvr_probe(struct device *devi
+@@ -7785,6 +7785,10 @@ int stmmac_dvr_probe(struct device *devi
  		goto error_phy_setup;
  	}
  
