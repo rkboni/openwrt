@@ -106,6 +106,7 @@
 		phy_aquantia: ethernet-phy@10 {
 			compatible = "ethernet-phy-ieee802.3-c45";
 			reg = <0x10>;
+			max-speed = <2500>;
 			phy-mode = "2500base-x";
 
 			marvell,fixed-system-interface; /* force sgmii+ since we havent tested the switch polling */
