@@ -16,6 +16,14 @@ echo CONFIG_TARGET_DEVICE_PACKAGES_qualcommax_ipq807x_DEVICE_linksys_mx4200v2=""
 echo CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx4300=y >> .config
 echo CONFIG_TARGET_DEVICE_PACKAGES_qualcommax_ipq807x_DEVICE_linksys_mx4300="" >> .config
 
-#add luci
+#set to testing kernel version (6.18)
+echo CONFIG_TESTING_KERNEL=y >> .config
+
+#add luci, tcpdump, iperf3 & some tools
 echo CONFIG_PACKAGE_luci=y >> .config
+echo CONFIG_PACKAGE_iperf3=y >> .config
+echo CONFIG_PACKAGE_tcpdump=y >> .config
+echo CONFIG_PACKAGE_mdio-tools=y >> .config
+echo CONFIG_PACKAGE_ethtool-full=y >> .config
+
 make defconfig

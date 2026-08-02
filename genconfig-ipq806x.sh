@@ -14,9 +14,14 @@ echo CONFIG_TARGET_DEVICE_PACKAGES_${arch}_generic_DEVICE_meraki_mr42=\"\" >> .c
 echo CONFIG_TARGET_DEVICE_PACKAGES_${arch}_generic_DEVICE_meraki_mr52=\"\" >> .config
 echo CONFIG_TARGET_DEVICE_PACKAGES_${arch}_generic_DEVICE_meraki_mr53=\"\" >> .config
 
-#add luci, tcpdump, iperf3 & some kmods
+#set to testing kernel version (6.18)
+echo CONFIG_TESTING_KERNEL=y >> .config
+
+#add luci, tcpdump, iperf3 & some tools
 echo CONFIG_PACKAGE_luci=y >> .config
 echo CONFIG_PACKAGE_iperf3=y >> .config
 echo CONFIG_PACKAGE_tcpdump=y >> .config
 echo CONFIG_PACKAGE_mdio-tools=y >> .config
+echo CONFIG_PACKAGE_ethtool-full=y >> .config
+
 make defconfig
