@@ -147,7 +147,7 @@
 	qca-85xx-sw {
 		compatible = "qcom,qca-85xx-sw";
 		mdiobus = <&mdio0>;
-		
+
 		sgmii-plus-phy-handle = <&phy_aquantia>; /* dynamic rate switching by polling phy */
 
 		qcom,chip-id = <1>;
@@ -309,7 +309,7 @@
 		bias-pull-up;
 		input;
 	};
-	
+
 	led_pins: led_pins {
 		pins = "gpio19", "gpio26";
 		function = "gpio";
