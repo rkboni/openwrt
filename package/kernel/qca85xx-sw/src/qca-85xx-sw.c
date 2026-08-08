@@ -1788,7 +1788,7 @@ static void qca_85xx_sw_of_get_pdata(struct device_node *np,
 		
 		/* Parse disable-learning ports */
 		count = of_property_count_u32_elems(np, "qcom,disable-learning-ports");
-		if (count > 0 && count <= QCA_85XX_MAX_PORTS) {
+		if (count > 0 && count <= QCA_85XX_MAX_PORTS_PER_PROFILE) {
 			ret = of_property_read_u32_array(np, "qcom,disable-learning-ports", 
 			                                  ports, count);
 			if (ret == 0) {
@@ -1842,6 +1842,8 @@ static struct net_device *qca_85xx_sw_get_eth_dev(struct platform_device *pdev)
 
 	printk(KERN_INFO "%s: Found netdev %s for SGMII+ PHY %s (%s)\n", __func__,
 	       phydev->attached_dev->name, phydev_name(phydev), phydev->drv->name);
+
+	dev_hold(phydev->attached_dev);
 
 	return phydev->attached_dev;
 }
