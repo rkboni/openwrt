@@ -16,11 +16,11 @@
 
 	aliases {
 		serial1 = &gsbi1_serial;
-		ethernet0 = &lan1; /* 1GbE - AR8033 */
-		ethernet1 = &lan2; /* 2.5GbE - Aquantia */
+		ethernet0 = &lan1; /* 2.5GbE - Aquantia */
+		ethernet1 = &lan2; /* 1GbE - AR8033 */
 		mdio-gpio0 = &mdio0;
 		mdio-gpio1 = &mdio1;
-		label-mac-device = &lan1;
+		label-mac-device = &lan2;
 
 		led-boot = &led_active;
 		led-failsafe = &led_power;
