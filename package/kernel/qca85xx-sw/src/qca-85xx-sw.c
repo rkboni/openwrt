@@ -754,7 +754,7 @@ post_ingress:
 	usleep_range(1000, 10000);
 
 	if (priv->read(VLAN_OPERATION) & VLAN_BUSY) {
-		pr_debug(KERN_ERR "qca_85xx_sw: VLAN entry add operation timed out\n");
+		pr_err("qca_85xx_sw: VLAN entry add operation timed out\n");
 		return -ETIMEDOUT;
 	}
 
@@ -1354,7 +1354,7 @@ static int qca_85xx_sw_issue_mib_op(int port, enum qca_85xx_sw_mib_op mib_op)
 	usleep_range(1000, 10000);
 
 	if (priv->read(MIB_OPERATION) & MIB_BUSY) {
-		pr_debug(KERN_ERR "qca_85xx_sw: MIB flush operation timed out\n");
+		pr_err("qca_85xx_sw: MIB flush operation timed out\n");
 		return -ETIMEDOUT;
 	}
 
