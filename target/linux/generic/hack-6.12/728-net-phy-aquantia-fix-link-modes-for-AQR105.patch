@@ -54,55 +54,55 @@
 -		phydev->interface = PHY_INTERFACE_MODE_NA;
 -		break;
 -	}
-+    int ret = aqr_read_status(phydev);
-+    if (ret)
-+        return ret;
++	int ret = aqr_read_status(phydev);
++	if (ret)
++		return ret;
 +
-+    if (!phydev->link || phydev->autoneg == AUTONEG_DISABLE)
-+        return 0;
++	if (!phydev->link || phydev->autoneg == AUTONEG_DISABLE)
++		return 0;
 +
-+    /* If system interface is fixed via DT, skip changes */
-+    if (!of_property_read_bool(phydev->mdio.dev.of_node,
-+                               "marvell,fixed-system-interface")) {
-+        int val = phy_read_mmd(phydev, MDIO_MMD_PHYXS,
-+                           MDIO_PHYXS_VEND_IF_STATUS);
-+        if (val < 0)
-+            return val;
++	/* If system interface is fixed via DT, skip changes */
++	if (!of_property_read_bool(phydev->mdio.dev.of_node,
++				   "marvell,fixed-system-interface")) {
++		int val = phy_read_mmd(phydev, MDIO_MMD_PHYXS,
++				       MDIO_PHYXS_VEND_IF_STATUS);
++		if (val < 0)
++			return val;
 +
-+        switch (FIELD_GET(MDIO_PHYXS_VEND_IF_STATUS_TYPE_MASK, val)) {
-+        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_KR:
-+            phydev->interface = PHY_INTERFACE_MODE_10GKR;
-+            break;
-+        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_KX:
-+            phydev->interface = PHY_INTERFACE_MODE_1000BASEKX;
-+            break;
-+        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_XFI:
-+            phydev->interface = PHY_INTERFACE_MODE_10GBASER;
-+            break;
-+        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_USXGMII:
-+            phydev->interface = PHY_INTERFACE_MODE_USXGMII;
-+            break;
-+        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_XAUI:
-+            phydev->interface = PHY_INTERFACE_MODE_XAUI;
-+            break;
-+        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_SGMII:
-+            phydev->interface = PHY_INTERFACE_MODE_SGMII;
-+            break;
-+        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_RXAUI:
-+            phydev->interface = PHY_INTERFACE_MODE_RXAUI;
-+            break;
-+        case MDIO_PHYXS_VEND_IF_STATUS_TYPE_OCSGMII:
-+            phydev->interface = PHY_INTERFACE_MODE_2500BASEX;
-+            break;
-+        default:
-+            phydev->interface = PHY_INTERFACE_MODE_NA;
-+            break;
-+        }
-+    }
++		switch (FIELD_GET(MDIO_PHYXS_VEND_IF_STATUS_TYPE_MASK, val)) {
++		case MDIO_PHYXS_VEND_IF_STATUS_TYPE_KR:
++			phydev->interface = PHY_INTERFACE_MODE_10GKR;
++			break;
++		case MDIO_PHYXS_VEND_IF_STATUS_TYPE_KX:
++			phydev->interface = PHY_INTERFACE_MODE_1000BASEKX;
++			break;
++		case MDIO_PHYXS_VEND_IF_STATUS_TYPE_XFI:
++			phydev->interface = PHY_INTERFACE_MODE_10GBASER;
++			break;
++		case MDIO_PHYXS_VEND_IF_STATUS_TYPE_USXGMII:
++			phydev->interface = PHY_INTERFACE_MODE_USXGMII;
++			break;
++		case MDIO_PHYXS_VEND_IF_STATUS_TYPE_XAUI:
++			phydev->interface = PHY_INTERFACE_MODE_XAUI;
++			break;
++		case MDIO_PHYXS_VEND_IF_STATUS_TYPE_SGMII:
++			phydev->interface = PHY_INTERFACE_MODE_SGMII;
++			break;
++		case MDIO_PHYXS_VEND_IF_STATUS_TYPE_RXAUI:
++			phydev->interface = PHY_INTERFACE_MODE_RXAUI;
++			break;
++		case MDIO_PHYXS_VEND_IF_STATUS_TYPE_OCSGMII:
++			phydev->interface = PHY_INTERFACE_MODE_2500BASEX;
++			break;
++		default:
++			phydev->interface = PHY_INTERFACE_MODE_NA;
++			break;
++		}
++	}
  
 -	/* Read possibly downshifted rate from vendor register */
 -	return aqr107_read_rate(phydev);
-+    return aqr107_read_rate(phydev);
++	return aqr107_read_rate(phydev);
  }
  
  static int aqr107_get_downshift(struct phy_device *phydev, u8 *data)
@@ -111,7 +111,7 @@
  	int ret;
  
 +	if (of_property_read_bool(phydev->mdio.dev.of_node,
-+							  "marvell,fixed-system-interface")) {
++				  "marvell,fixed-system-interface")) {
 +		phy_interface_t iface;
 +		int err = of_get_phy_mode(phydev->mdio.dev.of_node, &iface);
 +		if (!err && iface != PHY_INTERFACE_MODE_NA) {
