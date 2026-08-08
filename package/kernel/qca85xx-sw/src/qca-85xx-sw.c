@@ -1275,7 +1275,7 @@ static int qca_85xx_sw_init_debugfs_entries(void)
 		return -1;
 	}
 
-	priv->write_dentry = debugfs_create_file("write-reg", 0400,
+	priv->write_dentry = debugfs_create_file("write-reg", 0600,
 						priv->top_dentry,
 						priv, &qca_85xx_sw_write_reg_ops);
 
@@ -1285,7 +1285,7 @@ static int qca_85xx_sw_init_debugfs_entries(void)
 		return -1;
 	}
 
-	priv->read_dentry = debugfs_create_file("read-reg", 0400,
+	priv->read_dentry = debugfs_create_file("read-reg", 0600,
 						priv->top_dentry,
 						priv, &qca_85xx_sw_read_reg_ops);
 
