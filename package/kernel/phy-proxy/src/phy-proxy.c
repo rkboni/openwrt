@@ -746,7 +746,7 @@ MODULE_DEVICE_TABLE(of, phy_proxy_of_match);
 
 static struct platform_driver phy_proxy_driver = {
 		.probe = phy_proxy_probe,
-		.remove_new = phy_proxy_remove,
+		.remove = phy_proxy_remove,
 		.driver = {
 				.name = DRIVER_NAME,
 				.of_match_table = phy_proxy_of_match,
