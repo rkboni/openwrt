@@ -5,16 +5,6 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
-define Build/buffalo-kernel-ubifs
-	rm -rf $@-ubidir
-	mkdir -p $@-ubidir
-	mv $@ $@-ubidir/uImage.buffalo
-	touch $@
-	$(call Build/append-uImage-fakehdr, ramdisk)
-	mv $@ $@-ubidir/initrd.buffalo
-	$(STAGING_DIR_HOST)/bin/mkfs.ubifs $(KERNEL_UBIFS_OPTS) -r $@-ubidir $@
-endef
-
 # Some info about Ctera firmware:
 # 1. It's simple tar file (GNU standard), but it must have ".firm" suffix.
 # 2. It contains two images: kernel and romdisk. Both are required.
@@ -135,14 +125,25 @@ define Device/Default
   IMAGE/factory.bin := append-ubi
 endef
 
+# The stock U-Boot of the 3rd generation Linkstation (LS-WVL, LS-WXL, ...)
+# loads two separate uImage files, "uImage.buffalo" (kernel) and
+# "initrd.buffalo" (initramfs), from the boot partition / TFTP and boots
+# them with "bootm <kernel> <initrd>". Both files are plain U-Boot images,
+# i.e. the mkimage uImage header is the Buffalo header the bootloader
+# expects. The build therefore emits two separate artifacts preserving that
+# header, one for the kernel and one for the initramfs.
+
 define Device/buffalo_linkstation-lswvl
-  $(Device/NAND-512K)
   DEVICE_VENDOR := Buffalo
   DEVICE_MODEL := LinkStation LS-WVL
-  KERNEL_UBIFS_OPTS = -m $$(PAGESIZE) -e 124KiB -c 172 -x none
-  KERNEL := kernel-bin | append-dtb | uImage none | buffalo-kernel-ubifs
+  DEVICE_DTS := kirkwood-linkstation-lswvl
+  KERNEL := kernel-bin | append-dtb | uImage none
   KERNEL_INITRAMFS := kernel-bin | append-dtb | uImage none
   KERNEL_LOADADDR := 0X1A00000
+  KERNEL_SUFFIX := -uImage.buffalo
+  KERNEL_INSTALL := 1
+  IMAGES := sysupgrade.bin
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
   DEVICE_PACKAGES :=  \
     kmod-rtc-mv kmod-hwmon-gpiofan kmod-hwmon-drivetemp kmod-md-mod \
     kmod-md-raid0 kmod-md-raid1 kmod-md-raid10 kmod-fs-xfs mdadm \
