@@ -1,0 +1,367 @@
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
+@@ -29,6 +29,10 @@
+ #include <linux/module.h>
+ #include <linux/sys_soc.h>
+ #include <linux/bitfield.h>
++#include <linux/mdio.h>
++#include <linux/stdarg.h>
++#include <linux/netdevice.h>
++#include <linux/rtnetlink.h>
+ 
+ #include "stmmac_platform.h"
+ 
+@@ -52,6 +56,7 @@
+  */
+ #define NSS_COMMON_CLK_SRC_CTRL_RGMII(x)	1
+ #define NSS_COMMON_CLK_SRC_CTRL_SGMII(x)	((x >= 2) ? 1 : 0)
++#define NSS_COMMON_CLK_SRC_CTRL_QSGMII(x)	0
+ 
+ #define NSS_COMMON_GMAC_CTL(x)			(0x30 + (x * 4))
+ #define NSS_COMMON_GMAC_CTL_CSYS_REQ		BIT(19)
+@@ -66,6 +71,7 @@
+ #define NSS_COMMON_CLK_DIV_SGMII_100		4
+ #define NSS_COMMON_CLK_DIV_SGMII_10		49
+ 
++#define QSGMII_PCS_ALL_CH_CTL_CH_EN(x)		BIT(28 + (x))
+ #define QSGMII_PCS_ALL_CH_CTL			0x80
+ #define QSGMII_PCS_CH_SPEED_FORCE		BIT(1)
+ #define QSGMII_PCS_CH_SPEED_10			0x0
+@@ -80,6 +86,20 @@
+ #define QSGMII_PCS_CAL_LCKDT_CTL		0x120
+ #define QSGMII_PCS_CAL_LCKDT_CTL_RST		BIT(19)
+ 
++#define QSGMII_PCS_MODE_CTL			0x68
++#define QSGMII_PCS_MODE_CTL_AUTONEG_EN(x)	BIT(x)
++#define QSGMII_PCS_SGMII_MAC			BIT(1)
++#define QSGMII_PCS_CAL_LCKDT_CTL_LCKDT		BIT(0)
++
++/* Per-channel QSGMII PCS channel IDs */
++#define QSGMII_PCS_CHAN0			0
++#define QSGMII_PCS_CHAN1			1
++#define QSGMII_PCS_CHAN2			2
++#define QSGMII_PCS_CHAN3			3
++
++/* NSS GMAC phy-profile values */
++#define NSS_GMAC_PHY_PROFILE_QSGMII		2
++
+ /* Only GMAC1/2/3 support SGMII and their CTL register are not contiguous */
+ #define QSGMII_PHY_SGMII_CTL(x)			((x == 1) ? 0x134 : \
+ 						 (0x13c + (4 * (x - 2))))
+@@ -103,6 +123,40 @@
+ #define QSGMII_PHY_TX_DRV_AMP_MASK		GENMASK(31, 28)
+ #define QSGMII_PHY_TX_DRV_AMP(x)		FIELD_PREP(QSGMII_PHY_TX_DRV_AMP_MASK, (x))
+ 
++#define MDIO_ADDR_NONE				0x20
++
++/* NSS Common registers (via nss_common regmap) */
++#define NSS_MACSEC_CTL				0x28
++#define MACSEC_BYPASS_EXT_EN			BIT(7)
++#define NSS_QSGMII_CLK_CTL			0x2C
++
++/* QSGMII CSR registers */
++#define PCS_QSGMII_CTL				0x20
++#define PCS_QSGMII_ATHR_CSCO_AUTONEG		BIT(0)
++#define PCS_QSGMII_SW_VER_1_7			BIT(1)
++#define PCS_QSGMII_CUTTHROUGH_TX		BIT(2)
++#define PCS_QSGMII_CUTTHROUGH_RX		BIT(3)
++#define PCS_QSGMII_SHORT_THRESH			BIT(4)
++#define PCS_QSGMII_SHORT_LATENCY		BIT(5)
++#define PCS_QSGMII_DEPTH_THRESH(n)		((n) << 8)
++
++#define PCS_CH0_SERDES_SN_DETECT		BIT(11)
++#define PCS_CHn_SERDES_SN_DETECT(n)		(PCS_CH0_SERDES_SN_DETECT << (n))
++
++#define PCS_CH0_SERDES_SN_DETECT_2		BIT(16)
++#define PCS_CHn_SERDES_SN_DETECT_2(n)		(PCS_CH0_SERDES_SN_DETECT_2 << (n))
++
++#define QSGMII_PHY_MODE_CTL			0x64
++#define QSGMII_PHY_MODE_QSGMII			0x1
++
++#define PCS_QSGMII_SGMII_MODE			0x84
++#define PCS_QSGMII_MODE_QSGMII			0x0
++
++#define QSGMII_PHY_QSGMII_CTL			0x7C
++#define QSGMII_TX_SLC_CTL(n)			BIT(28 + (n))
++
++static atomic_t gmac_probe_order = ATOMIC_INIT(0);
++
+ struct ipq806x_gmac {
+ 	struct platform_device *pdev;
+ 	struct regmap *nss_common;
+@@ -110,6 +164,7 @@ struct ipq806x_gmac {
+ 	uint32_t id;
+ 	struct clk *core_clk;
+ 	phy_interface_t phy_mode;
++	struct stmmac_resources stmmac_res;
+ };
+ 
+ static int get_clk_div_sgmii(struct ipq806x_gmac *gmac, int speed)
+@@ -180,6 +235,7 @@ static int ipq806x_gmac_set_speed(struct
+ 		break;
+ 
+ 	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_QSGMII:
+ 		div = get_clk_div_sgmii(gmac, speed);
+ 		clk_bits = NSS_COMMON_CLK_GATE_GMII_RX_EN(gmac->id) |
+ 			   NSS_COMMON_CLK_GATE_GMII_TX_EN(gmac->id);
+@@ -211,12 +267,46 @@ static int ipq806x_gmac_set_speed(struct
+ 	return 0;
+ }
+ 
+-static int ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac,
+-				 struct plat_stmmacenet_data *plat_dat)
++static int ipq806x_gmac_configure_qsgmii_global(struct ipq806x_gmac *gmac)
++{
++	u32 pcs_qsgmii_ctl_val;
++
++	if (gmac->phy_mode != PHY_INTERFACE_MODE_QSGMII)
++		return 0;
++
++	/* Only once for first gmac */
++	if (gmac->id != 0)
++		return 0;
++
++	pcs_qsgmii_ctl_val = PCS_QSGMII_ATHR_CSCO_AUTONEG |
++			     PCS_QSGMII_SW_VER_1_7 |
++			     PCS_QSGMII_SHORT_THRESH |
++			     PCS_QSGMII_SHORT_LATENCY |
++			     PCS_QSGMII_DEPTH_THRESH(1) |
++			     PCS_CHn_SERDES_SN_DETECT(0) |
++			     PCS_CHn_SERDES_SN_DETECT(1) |
++			     PCS_CHn_SERDES_SN_DETECT(2) |
++			     PCS_CHn_SERDES_SN_DETECT(3) |
++			     PCS_CHn_SERDES_SN_DETECT_2(0) |
++			     PCS_CHn_SERDES_SN_DETECT_2(1) |
++			     PCS_CHn_SERDES_SN_DETECT_2(2) |
++			     PCS_CHn_SERDES_SN_DETECT_2(3);
++
++	regmap_write(gmac->qsgmii_csr, PCS_QSGMII_CTL, pcs_qsgmii_ctl_val);
++
++	return 0;
++}
++
++static int ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
+ {
+ 	struct device *dev = &gmac->pdev->dev;
++	int ret;
+ 
+-	gmac->phy_mode = plat_dat->phy_interface;
++	ret = of_get_phy_mode(dev->of_node, &gmac->phy_mode);
++	if (ret) {
++		dev_err(dev, "missing phy mode property\n");
++		return ret;
++	}
+ 
+ 	if (of_property_read_u32(dev->of_node, "qcom,id", &gmac->id) < 0) {
+ 		dev_err(dev, "missing qcom id property\n");
+@@ -331,6 +421,7 @@ ipq806x_gmac_configure_qsgmii_params(str
+ 	u32 qsgmii_param;
+ 
+ 	switch (gmac->id) {
++	case 0:
+ 	case 1:
+ 		soc = soc_device_match(ipq806x_gmac_soc_v1);
+ 
+@@ -350,8 +441,8 @@ ipq806x_gmac_configure_qsgmii_params(str
+ 		qsgmii_param = QSGMII_PHY_RX_DC_BIAS(0x3) |
+ 			       QSGMII_PHY_TX_DRV_AMP(0xc);
+ 		break;
+-	default: /* gmac 0 can't be set in SGMII mode */
+-		dev_err(dev, "gmac id %d can't be in SGMII mode", gmac->id);
++	default: /* gmac 0 can't be set in SGMII/QSGMII mode */
++		dev_err(dev, "gmac id %d can't be in SGMII/QSGMII mode\n", gmac->id);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -374,34 +465,34 @@ ipq806x_gmac_configure_qsgmii_params(str
+ static int ipq806x_gmac_probe(struct platform_device *pdev)
+ {
+ 	struct plat_stmmacenet_data *plat_dat;
+-	struct stmmac_resources stmmac_res;
+ 	struct device *dev = &pdev->dev;
+ 	struct ipq806x_gmac *gmac;
+-	int val;
+-	int err;
+-
+-	val = stmmac_get_platform_resources(pdev, &stmmac_res);
+-	if (val)
+-		return val;
+-
+-	plat_dat = devm_stmmac_probe_config_dt(pdev, stmmac_res.mac);
+-	if (IS_ERR(plat_dat))
+-		return PTR_ERR(plat_dat);
++	int val, err;
+ 
++	/* Parse device tree to get GMAC ID and PHY interface mode */
+ 	gmac = devm_kzalloc(dev, sizeof(*gmac), GFP_KERNEL);
+ 	if (!gmac)
+ 		return -ENOMEM;
+ 
+ 	gmac->pdev = pdev;
+-
+-	err = ipq806x_gmac_of_parse(gmac, plat_dat);
++	err = ipq806x_gmac_of_parse(gmac);
+ 	if (err) {
+ 		dev_err(dev, "device tree parsing error\n");
+ 		return err;
+ 	}
+ 
+-	regmap_write(gmac->qsgmii_csr, QSGMII_PCS_CAL_LCKDT_CTL,
+-		     QSGMII_PCS_CAL_LCKDT_CTL_RST);
++	/* qsgmii enforce probe order */
++	if (gmac->phy_mode == PHY_INTERFACE_MODE_QSGMII &&
++	    atomic_read(&gmac_probe_order) != gmac->id)
++		return -EPROBE_DEFER;
++
++	val = stmmac_get_platform_resources(pdev, &gmac->stmmac_res);
++	if (val)
++		return val;
++
++	plat_dat = devm_stmmac_probe_config_dt(pdev, gmac->stmmac_res.mac);
++	if (IS_ERR(plat_dat))
++		return PTR_ERR(plat_dat);
+ 
+ 	/* Inter frame gap is set to 12 */
+ 	val = 12 << NSS_COMMON_GMAC_CTL_IFG_OFFSET |
+@@ -416,6 +507,7 @@ static int ipq806x_gmac_probe(struct pla
+ 		val |= NSS_COMMON_GMAC_CTL_PHY_IFACE_SEL;
+ 		break;
+ 	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_QSGMII:
+ 		val &= ~NSS_COMMON_GMAC_CTL_PHY_IFACE_SEL;
+ 		break;
+ 	default:
+@@ -438,11 +530,20 @@ static int ipq806x_gmac_probe(struct pla
+ 		val |= NSS_COMMON_CLK_SRC_CTRL_SGMII(gmac->id) <<
+ 			NSS_COMMON_CLK_SRC_CTRL_OFFSET(gmac->id);
+ 		break;
++	case PHY_INTERFACE_MODE_QSGMII:
++		val |= NSS_COMMON_CLK_SRC_CTRL_QSGMII(gmac->id) <<
++			NSS_COMMON_CLK_SRC_CTRL_OFFSET(gmac->id);
++		break;
+ 	default:
+ 		goto err_unsupported_phy;
+ 	}
+ 	regmap_write(gmac->nss_common, NSS_COMMON_CLK_SRC_CTRL, val);
+ 
++	/* For QSGMII, clear clock halt bits */
++	if (gmac->phy_mode == PHY_INTERFACE_MODE_QSGMII) {
++		regmap_write(gmac->nss_common, NSS_QSGMII_CLK_CTL, 0);
++	}
++
+ 	/* Enable PTP clock */
+ 	regmap_read(gmac->nss_common, NSS_COMMON_CLK_GATE, &val);
+ 	val |= NSS_COMMON_CLK_GATE_PTP_EN(gmac->id);
+@@ -455,6 +556,7 @@ static int ipq806x_gmac_probe(struct pla
+ 			NSS_COMMON_CLK_GATE_RGMII_TX_EN(gmac->id);
+ 		break;
+ 	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_QSGMII:
+ 		val |= NSS_COMMON_CLK_GATE_GMII_RX_EN(gmac->id) |
+ 				NSS_COMMON_CLK_GATE_GMII_TX_EN(gmac->id);
+ 		break;
+@@ -463,24 +565,53 @@ static int ipq806x_gmac_probe(struct pla
+ 	}
+ 	regmap_write(gmac->nss_common, NSS_COMMON_CLK_GATE, val);
+ 
+-	if (gmac->phy_mode == PHY_INTERFACE_MODE_SGMII) {
+-		err = ipq806x_gmac_configure_qsgmii_params(gmac);
++	switch (gmac->phy_mode) {
++	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_QSGMII:
++		if (gmac->phy_mode == PHY_INTERFACE_MODE_SGMII) {
++			err = ipq806x_gmac_configure_qsgmii_params(gmac);
++			if (err)
++				return err;
++		}
++
++		err = ipq806x_gmac_configure_qsgmii_pcs_speed(gmac);
+ 		if (err)
+ 			return err;
+ 
+-		err = ipq806x_gmac_configure_qsgmii_pcs_speed(gmac);
++		err = ipq806x_gmac_configure_qsgmii_global(gmac);
+ 		if (err)
+ 			return err;
++		break;
++	default:
++		break;
+ 	}
+ 
+ 	plat_dat->core_type = DWMAC_CORE_GMAC;
+ 	plat_dat->bsp_priv = gmac;
+-	plat_dat->set_clk_tx_rate = ipq806x_gmac_set_clk_tx_rate;
++	if (!of_phy_is_fixed_link(pdev->dev.of_node)) {
++		plat_dat->set_clk_tx_rate = ipq806x_gmac_set_clk_tx_rate;
++	}
+ 	plat_dat->multicast_filter_bins = 0;
+ 	plat_dat->tx_fifo_size = 8192;
+ 	plat_dat->rx_fifo_size = 8192;
+ 
+-	return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
++	err = stmmac_dvr_probe(&pdev->dev, plat_dat, &gmac->stmmac_res);
++	if (err)
++		return err;
++
++	if (of_property_read_bool(pdev->dev.of_node, "no-bridge")) {
++		struct net_device *ndev = platform_get_drvdata(pdev);
++		if (ndev) {
++			ndev->priv_flags |= IFF_DONT_BRIDGE;
++		}
++	}
++
++	/* Increment for next GMAC */
++	if (gmac->phy_mode == PHY_INTERFACE_MODE_QSGMII) {
++		atomic_inc(&gmac_probe_order);
++	}
++
++	return 0;
+ 
+ err_unsupported_phy:
+ 	dev_err(&pdev->dev, "Unsupported PHY mode: \"%s\"\n",
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -7671,6 +7671,10 @@ int stmmac_dvr_probe(struct device *devi
+ 		goto error_phy_setup;
+ 	}
+ 
++	if (plat_dat->label) {
++		strscpy(ndev->name, plat_dat->label, IFNAMSIZ);
++	}
++
+ 	ret = register_netdev(ndev);
+ 	if (ret) {
+ 		dev_err(priv->device, "%s: ERROR %i registering the device\n",
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -432,6 +432,7 @@ stmmac_probe_config_dt(struct platform_d
+ 	struct plat_stmmacenet_data *plat;
+ 	struct stmmac_dma_cfg *dma_cfg;
+ 	static int bus_id = -ENODEV;
++	const char *label;
+ 	int phy_mode;
+ 	void *ret;
+ 	int rc;
+@@ -483,6 +484,11 @@ stmmac_probe_config_dt(struct platform_d
+ 	/* Default to phy auto-detection */
+ 	plat->phy_addr = -1;
+ 
++	/* Get custom label for network device name */
++	if (!of_property_read_string(np, "label", &label)) {
++		plat->label = devm_kstrdup(&pdev->dev, label, GFP_KERNEL);
++	}
++
+ 	/* Default to get clk_csr from stmmac_clk_csr_set(),
+ 	 * or get clk_csr from device tree.
+ 	 */
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -196,6 +196,7 @@ struct plat_stmmacenet_data {
+ 	enum dwmac_core_type core_type;
+ 	int bus_id;
+ 	int phy_addr;
++	const char *label;
+ 	/* MAC ----- optional PCS ----- SerDes ----- optional PHY ----- Media
+ 	 *                                       ^
+ 	 *                                  phy_interface
