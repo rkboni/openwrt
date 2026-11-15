@@ -1,0 +1,259 @@
+From: OpenWrt ath10k-ct bugfix
+Subject: [PATCH] ath10k-ct: derive rate-override indexes from the firmware
+ rate-table NSS, not from the board chain count
+
+The CT firmware carries a rate-table whose geometry is fixed when the
+firmware image is built: 12 legacy rates, then one group of (nss * 8) HT
+rates per bandwidth, then one group of (nss * 10) VHT rates per bandwidth.
+That "nss" belongs to the firmware image, not to the board it runs on.
+
+  * the 10.1 image is built 3x3 and also runs on 2x2 QCA988X and 1x1
+    QCA9887 - the driver already hacks around this,
+  * the 10.4 image is built 4x4 for QCA9980/QCA9990/QCA9994/QCA9984 and
+    also runs on the 3x3 and on 2x2 boards - nothing handled this.
+
+ath10k_peer_assoc_h_rate_overrides() computed every rate index from
+ar->num_rf_chains, so on a board with fewer chains than the firmware image
+was built for, every group after the legacy rates is shifted down and the
+top bandwidth group falls off the end of the addressed range.
+
+On a 3x3 with 10.4-ct firmware the highest index the function reaches is 149, while the VHT80
+group of the 4x4 table starts at 156.  Not a single VHT80 rate is enabled,
+so the firmware's rate control has nothing above VHT40 to choose and the
+radio transmits at 40MHz even though the vdev came up in VHT80 and the
+beacons advertise an 80MHz operating width.  This is the long-standing
+"ath10k-ct will not TX above 40MHz on 3x3" bug (OpenWrt FS#3405 /
+openwrt/openwrt#8262), whose only known workaround was switching to the
+non-CT driver, which does not use this feature at all.
+
+Introduce ath10k_mac_fw_ratetable_nss() and use it for all index
+arithmetic, while the loops that pick which streams to enable stay bound
+by the number of chains the board actually has.  Boards where the two
+already agree (4x4 QCA9980/QCA9984 such as the Archer C2600 or R7800)
+produce a bit-identical rate-override set, so they are unaffected.
+
+A fwrate_nss module parameter allows overriding the assumed rate-table
+geometry (fwrate_nss=N) or disabling the CT ratemask feature altogether
+(fwrate_nss=-1) for firmware images that are not characterised here.
+--- a/ath10k-6.18/mac.c
++++ b/ath10k-6.18/mac.c
+@@ -353,6 +353,16 @@ int ath10k_modparam_target_num_rate_ctrl
+ module_param_named(num_rate_ctrl_objs_ct, ath10k_modparam_target_num_rate_ctrl_objs_ct, int, 0444);
+ MODULE_PARM_DESC(num_rate_ctrl_objs_ct, "Number of rate-ctrl objects to cache in firmware RAM");
+ 
++/* Number of spatial streams the CT firmware's built-in rate-table is
++ * compiled for.  This is a property of the firmware image, not of the
++ * board.  0 lets the driver work it out from the device-id, a negative
++ * value disables the CT ratemask feature completely (the firmware then
++ * uses its own, unrestricted rate-table).
++ */
++static int ath10k_modparam_fwrate_nss;
++module_param_named(fwrate_nss, ath10k_modparam_fwrate_nss, int, 0444);
++MODULE_PARM_DESC(fwrate_nss,
++		 "NSS the firmware rate-table is built for (0 = auto, <0 = disable rate overrides)");
+ 
+ /**********/
+ /* Crypto */
+@@ -2616,6 +2626,56 @@ static void ath10k_set_rate_enabled(int
+ 	}
+ }
+ 
++/* The CT firmware carries a rate-table whose geometry is fixed when the
++ * firmware is built: 12 legacy rates, then one group of (nss * 8) HT rates
++ * per bandwidth, then one group of (nss * 10) VHT rates per bandwidth.
++ * That 'nss' is a property of the firmware image, NOT of the board it is
++ * running on:
++ *
++ *  - the 10.1 image is built 3x3 and also runs on 2x2 QCA988X and on the
++ *    1x1 QCA9887,
++ *  - the 10.4 image is built 4x4 for the QCA9980/QCA9990/QCA9994/QCA9984
++ *    family and also runs on the 3x3 and on 2x2 boards.
++ *
++ * Computing the rate indexes from ar->num_rf_chains is therefore wrong
++ * whenever the board has fewer chains than the firmware image was built
++ * for: every group past the legacy rates is shifted down by
++ * (fw_nss - num_rf_chains) entries per group, and the topmost bandwidth
++ * group falls off the end entirely.  On a 3x3 the highest index this function reaches is 149
++ * while the VHT80 group of the 4x4 table starts at 156, so not a single
++ * VHT80 rate is ever enabled.  The firmware then has nothing above VHT40
++ * to pick and quietly transmits at 40MHz even though the vdev came up in
++ * VHT80 and the beacons advertise 80MHz.
++ *
++ * So: use the NSS the firmware's rate-table was built for.
++ */
++static int ath10k_mac_fw_ratetable_nss(struct ath10k *ar)
++{
++	if (ath10k_modparam_fwrate_nss > 0)
++		return ath10k_modparam_fwrate_nss;
++
++	switch (ar->dev_id) {
++	case QCA988X_2_0_DEVICE_ID:
++	case QCA9887_1_0_DEVICE_ID:
++		/* 10.1 firmware, rate-table is 3x3 even on the 2x2 and 1x1
++		 * members of the family.
++		 */
++		return 3;
++	case QCA99X0_2_0_DEVICE_ID:
++	case QCA9984_1_0_DEVICE_ID:
++		/* 10.4 firmware, rate-table is 4x4 even on the 3x3
++		 * and 2x2 boards.
++		 */
++		return 4;
++	default:
++		/* QCA9888 is a 2x2 part with its own 2x2 image; anything else
++		 * we have not characterised, so assume the table matches the
++		 * board and keep the historic behaviour.
++		 */
++		return ar->num_rf_chains;
++	}
++}
++
+ static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
+ 					       struct ieee80211_vif *vif,
+ 					       struct ieee80211_sta *sta,
+@@ -2633,12 +2693,17 @@ static void ath10k_peer_assoc_h_rate_ove
+ 	bool ok160 = false;
+ 	u16 rate_bw_disable_mask = ar->eeprom_overrides.rate_bw_disable_mask;
+ 
+-	/* So, what we really want here is the max number of chains the firmware
+-	 * is compiled for.  But, since we can have 3x3 firmware run on 2x2 chips,
+-	 * then we need to hack on this in gruesome ways.  Better have the hack here
+-	 * than try to extend FW's ability to send that value I think.
+-	 */
++	/* Geometry of the firmware rate-table; drives all index arithmetic. */
++	int fw_nss;
++	/* How many spatial streams we enable rates for. */
+ 	int hw_nss = ar->num_rf_chains;
++
++	/* Let a user switch the feature off completely if their firmware has a
++	 * rate-table we do not know how to address.
++	 */
++	if (ath10k_modparam_fwrate_nss < 0)
++		return;
++
+ 	if (! test_bit(ATH10K_FW_FEATURE_CT_RATEMASK,
+ 		       ar->running_fw->fw_file.fw_features))
+ 		return;
+@@ -2669,15 +2734,22 @@ static void ath10k_peer_assoc_h_rate_ove
+ 		ok160 = true;
+ 	}
+ 
+-	if (hw_nss < 3) {
+-		/* Maybe 2x2 NIC booting 3x3 988x firmware? */
+-		/* 9887 is weird, NSS = 1, but FW rate-table is compiled for 3x3 evidently */
+-		if ((ar->dev_id == QCA988X_2_0_DEVICE_ID) ||
+-		    (ar->dev_id == QCA9887_1_0_DEVICE_ID)) {
+-			hw_nss = 3;
+-		}
++	fw_nss = ath10k_mac_fw_ratetable_nss(ar);
++
++	if ((ar->dev_id == QCA988X_2_0_DEVICE_ID) ||
++	    (ar->dev_id == QCA9887_1_0_DEVICE_ID)) {
++		/* Historic behaviour: enable the full 3x3 rate-set on these
++		 * regardless of how many chains the board has.
++		 */
++		hw_nss = fw_nss;
++	} else if (hw_nss > fw_nss) {
++		/* Never walk off the end of the table. */
++		hw_nss = fw_nss;
+ 	}
+ 
++	if (WARN_ON_ONCE(fw_nss <= 0))
++		return;
++
+ 	lockdep_assert_held(&ar->conf_mutex);
+ 
+ 	if (WARN_ON_ONCE(ath10k_mac_vif_chan(vif, &def)))
+@@ -2688,8 +2760,8 @@ static void ath10k_peer_assoc_h_rate_ove
+ 	ratemask = arvif->bitrate_mask.control[band].legacy;
+ 	rates = sband->bitrates;
+ 
+-	ath10k_dbg(ar, ATH10K_DBG_MAC2, "band: %d  ratemask: 0x%x  hw-nss: %d dev-id: 0x%x rate-bw-disable-mask: 0x%x\n",
+-		   band, ratemask, hw_nss, ar->dev_id, rate_bw_disable_mask);
++	ath10k_dbg(ar, ATH10K_DBG_MAC2, "band: %d  ratemask: 0x%x  hw-nss: %d fw-nss: %d dev-id: 0x%x rate-bw-disable-mask: 0x%x\n",
++		   band, ratemask, hw_nss, fw_nss, ar->dev_id, rate_bw_disable_mask);
+ 
+ 	arg->has_rate_overrides = true;
+ 
+@@ -2714,10 +2786,9 @@ static void ath10k_peer_assoc_h_rate_ove
+ 		ath10k_set_rate_enabled(hw_rix, arg->rate_overrides, 1);
+ 	}
+ 
+-	/* HT rate logic (ath10k AR98XX, at least, uses 3x3 rateset).  First set
+-	 * of 3 is HT20, second set is HT40.  No way to specify HT20 vs HT40
+-	 * using normal rate-set info as far as I can tell, so set both to the
+-	 * same value.
++	/* HT rate logic.  First set of fw_nss*8 rates is HT20, second set is
++	 * HT40.  No way to specify HT20 vs HT40 using normal rate-set info as
++	 * far as I can tell, so set both to the same value.
+ 	 */
+ 	for (i = 0; i < hw_nss; i++) {
+ 		unsigned int mcs = arvif->bitrate_mask.control[band].ht_mcs[i];
+@@ -2727,20 +2798,20 @@ static void ath10k_peer_assoc_h_rate_ove
+ 				hw_rix = 12 + i * 8 + j;
+ 				ath10k_dbg(ar, ATH10K_DBG_MAC2,
+ 					   "set-enabled, ht: hw-rix: %d, %d  i: %d j: %d\n",
+-					   hw_rix, hw_rix + hw_nss * 8, i, j);
++					   hw_rix, hw_rix + fw_nss * 8, i, j);
+ 				if (!(rate_bw_disable_mask & CT_DISABLE_20MHZ))
+ 					ath10k_set_rate_enabled(hw_rix, arg->rate_overrides, 1);
+ 				/* Set HT40 rateset too */
+ 				if (!(rate_bw_disable_mask & CT_DISABLE_40MHZ))
+-					ath10k_set_rate_enabled(hw_rix + hw_nss * 8, arg->rate_overrides, 1);
++					ath10k_set_rate_enabled(hw_rix + fw_nss * 8, arg->rate_overrides, 1);
+ 			}
+ 		}
+ 	}
+ 
+-	/* VHT rate logic (ath10k AR98XX, at least, uses 3x3 rateset).
+-	 * One set of rates for each of 20, 40, 80Mhz bandwidth.
+-	 * Each set has 10 rates for each of 1, 2, and 3 streams.
+-	 * No way to specify HT20 vs HT40 vs HT80
++	/* VHT rate logic.  One set of rates for each of 20, 40, 80Mhz
++	 * bandwidth (and 160Mhz on parts that have it).  Each set has 10
++	 * rates for each of the fw_nss streams the table was built for.
++	 * No way to specify VHT20 vs VHT40 vs VHT80
+ 	 * using normal rate-set info as far as I can tell, so set all three to the
+ 	 * same value.
+ 	 */
+@@ -2756,31 +2827,31 @@ static void ath10k_peer_assoc_h_rate_ove
+ 		for (j = 0; j<10; j++) {
+ 			if (mcs & (1<<j)) {
+ 				int hw_rix_20_40, hw_rix_80;
+-				hw_rix = 12 + (hw_nss * 2) * 8 + i * 10 + j;
++				hw_rix = 12 + (fw_nss * 2) * 8 + i * 10 + j;
+ 				hw_rix_20_40 = hw_rix;
+ 				hw_rix_80 = hw_rix;
+ 				if ((i < 2) && (j == 9)) {
+ 					/* Requested invalid rate:  mcs-9 for 1x1 or 2x2, use nearest. */
+-					hw_rix_20_40 = 12 + (hw_nss * 2) * 8 + i * 10 + 8;
++					hw_rix_20_40 = 12 + (fw_nss * 2) * 8 + i * 10 + 8;
+ 				}
+ 				if ((i == 2) && (j == 6)) {
+ 					/* Requested invalid rate:  mcs-6 for 80Mhz, use nearest. */
+-					hw_rix_80 = 12 + (hw_nss * 2) * 8 + i * 10 + 5;
++					hw_rix_80 = 12 + (fw_nss * 2) * 8 + i * 10 + 5;
+ 				}
+ 				ath10k_dbg(ar, ATH10K_DBG_MAC2,
+ 					   "set-enabled, vht: hw-rix-20-40: %d, hw-rix-80: %d  orig-hw-rix: %d  %d, %d  i: %d j: %d\n",
+-					   hw_rix_20_40, hw_rix_80, hw_rix, hw_rix + hw_nss * 10, hw_rix + hw_nss * 2 * 10, i, j);
++					   hw_rix_20_40, hw_rix_80, hw_rix, hw_rix + fw_nss * 10, hw_rix + fw_nss * 2 * 10, i, j);
+ 				if (!(rate_bw_disable_mask & CT_DISABLE_20MHZ))
+ 					ath10k_set_rate_enabled(hw_rix_20_40, arg->rate_overrides, 1);
+-				/* Set HT40 rateset too */
++				/* Set VHT40 rateset too */
+ 				if (!(rate_bw_disable_mask & CT_DISABLE_40MHZ))
+-					ath10k_set_rate_enabled(hw_rix_20_40 + hw_nss * 10, arg->rate_overrides, 1);
+-				/* Set HT80 rateset too */
++					ath10k_set_rate_enabled(hw_rix_20_40 + fw_nss * 10, arg->rate_overrides, 1);
++				/* Set VHT80 rateset too */
+ 				if (!(rate_bw_disable_mask & CT_DISABLE_80MHZ))
+-					ath10k_set_rate_enabled(hw_rix_80 + hw_nss * 2 * 10, arg->rate_overrides, 1);
++					ath10k_set_rate_enabled(hw_rix_80 + fw_nss * 2 * 10, arg->rate_overrides, 1);
+ 				/* And for NICs that support 160Mhz, set those */
+ 				if (ok160 && !(rate_bw_disable_mask & ATH_CT_DISABLE_160MHZ))
+-					ath10k_set_rate_enabled(hw_rix + hw_nss * 3 * 10, arg->rate_overrides, 1);
++					ath10k_set_rate_enabled(hw_rix + fw_nss * 3 * 10, arg->rate_overrides, 1);
+ 			}
+ 		}
+ 	}
