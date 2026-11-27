@@ -1,6 +1,6 @@
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2374,6 +2374,7 @@ err_undo_flags:
+@@ -2406,6 +2406,7 @@ err_undo_flags:
  
  	return res;
  }
@@ -8,7 +8,7 @@
  
  /* Try to release the slave device <slave> from the bond device <master>
   * It is legal to access curr_active_slave without a lock because all the function
-@@ -6023,6 +6024,7 @@ void bond_setup(struct net_device *bond_
+@@ -6049,6 +6050,7 @@ void bond_setup(struct net_device *bond_
  		bond_dev->features |= BOND_XFRM_FEATURES;
  #endif /* CONFIG_XFRM_OFFLOAD */
  }

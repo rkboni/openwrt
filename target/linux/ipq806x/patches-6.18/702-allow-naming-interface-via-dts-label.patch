@@ -1,0 +1,45 @@
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -7785,6 +7785,10 @@ int stmmac_dvr_probe(struct device *devi
+ 		goto error_phy_setup;
+ 	}
+ 
++	if (plat_dat->label) {
++		strscpy(ndev->name, plat_dat->label, IFNAMSIZ);
++	}
++
+ 	ret = register_netdev(ndev);
+ 	if (ret) {
+ 		dev_err(priv->device, "%s: ERROR %i registering the device\n",
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -430,6 +430,7 @@ stmmac_probe_config_dt(struct platform_d
+ 	struct plat_stmmacenet_data *plat;
+ 	struct stmmac_dma_cfg *dma_cfg;
+ 	static int bus_id = -ENODEV;
++	const char *label;
+ 	int phy_mode;
+ 	void *ret;
+ 	int rc;
+@@ -481,6 +482,11 @@ stmmac_probe_config_dt(struct platform_d
+ 	/* Default to phy auto-detection */
+ 	plat->phy_addr = -1;
+ 
++	/* Get custom label for network device name */
++	if (!of_property_read_string(np, "label", &label)) {
++		plat->label = devm_kstrdup(&pdev->dev, label, GFP_KERNEL);
++	}
++
+ 	/* Default to get clk_csr from stmmac_clk_csr_set(),
+ 	 * or get clk_csr from device tree.
+ 	 */
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -196,6 +196,7 @@ struct plat_stmmacenet_data {
+ 	enum dwmac_core_type core_type;
+ 	int bus_id;
+ 	int phy_addr;
++	const char *label;
+ 	/* MAC ----- optional PCS ----- SerDes ----- optional PHY ----- Media
+ 	 *                                       ^
+ 	 *                                  phy_interface
