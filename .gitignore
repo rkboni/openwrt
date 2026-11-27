@@ -33,6 +33,7 @@ TAGS*~
 git-src
 .project
 .cproject
+.settings/
 .ccache
 .sccache
 .vscode*

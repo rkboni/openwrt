@@ -33,8 +33,8 @@ Signed-off-by: Mieczyslaw Nalewaj <namiltd@yahoo.com>
  	u32 rxq;
  	int i, ret = 0;
  
-@@ -7785,7 +7786,24 @@ int stmmac_dvr_probe(struct device *devi
- 		goto error_phy_setup;
+@@ -7789,7 +7790,24 @@ int stmmac_dvr_probe(struct device *devi
+ 		strscpy(ndev->name, plat_dat->label, IFNAMSIZ);
  	}
  
 -	ret = register_netdev(ndev);
