@@ -45,9 +45,6 @@ enum qca_85xx_sw_port_mode {
 struct qca_85xx_sw_qsgmii_cfg {
 	enum qca_85xx_sw_port_mode port_mode;
 	uint32_t port_base;
-	bool is_speed_forced;
-	uint32_t forced_speed;
-	uint32_t forced_duplex;
 };
 
 /* SGMII port platform configuration data */
@@ -64,6 +61,16 @@ struct qca_85xx_sw_trunk_cfg {
 	uint32_t trunk_id;
 	uint32_t trunk_hash_policy;
 	uint32_t trunk_ports_bit_map;
+};
+
+/* Per-port mapping parsed from the ethernet-ports child node */
+struct qca_85xx_sw_port_cfg {
+	uint32_t port;
+	int lag_group;		/* -1 when the port is not a LAG member */
+	int isolation_profile;	/* -1 when the port has no isolation profile */
+	bool sgmii_plus;
+	bool disable_learning;
+	struct qca_85xx_sw_sgmii_cfg sgmii_cfg;
 };
 
 /* Port isolation configuration */
@@ -93,14 +100,12 @@ struct qca_85xx_sw_platform_data {
 	uint32_t	sgmii_plus_if_phy_addr;
 	uint32_t	chip_id;
 	struct qca_85xx_sw_qsgmii_cfg qsgmii_cfg;
-	struct qca_85xx_sw_sgmii_cfg port_24_cfg;
-	struct qca_85xx_sw_sgmii_cfg port_25_cfg;
-	struct qca_85xx_sw_sgmii_cfg port_26_cfg;
-	struct qca_85xx_sw_sgmii_cfg port_27_cfg;
-	struct qca_85xx_sw_sgmii_cfg port_28_cfg;
-	struct qca_85xx_sw_sgmii_cfg port_29_cfg;
-	struct qca_85xx_sw_trunk_cfg trunk_cfg;
+	struct qca_85xx_sw_trunk_cfg trunk_cfgs[QCA_85XX_MAX_TRUNKS];
+	uint32_t num_trunks;
+	uint32_t trunk_hash_policy;
 	struct qca_85xx_sw_port_isolation_cfg port_isolation_cfg;
+	struct qca_85xx_sw_port_cfg ports[QCA_85XX_MAX_PORTS];
+	uint32_t num_ports;
 };
 
 /* 85xx Switch GMAC port IDs */

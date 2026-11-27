@@ -282,13 +282,27 @@ static void qca_85xx_sw_sgmii_plus_if_change_speed(struct net_device *dev)
 	priv->sgmii_plus_duplex = curr_duplex;
 }
 
- /* Configure a QSGMII interface */
-static int qca_85xx_sw_init_qsgmii_port(struct qca_85xx_sw_qsgmii_cfg *qcfg)
+static struct qca_85xx_sw_port_cfg *
+qca_85xx_sw_find_port_cfg(struct qca_85xx_sw_platform_data *pdata, uint32_t port)
 {
+	uint32_t i;
+
+	for (i = 0; i < pdata->num_ports; i++) {
+		if (pdata->ports[i].port == port)
+			return &pdata->ports[i];
+	}
+
+	return NULL;
+}
+
+/* Configure a QSGMII interface */
+static int qca_85xx_sw_init_qsgmii_port(struct qca_85xx_sw_platform_data *pdata)
+{
+	struct qca_85xx_sw_qsgmii_cfg *qcfg = &pdata->qsgmii_cfg;
+	uint32_t ch_ctrl_addr[4];
 	uint32_t val, sd_clk_sel_val;
-	uint32_t ch0_ctrl_addr, ch1_ctrl_addr, ch2_ctrl_addr, ch3_ctrl_addr;
 	bool part_b = false;
-	int group_num;
+	int group_num, i;
 
 	if (qcfg->port_base > (priv->chip->max_qsgmii_if * 4))
 		return -EINVAL;
@@ -320,91 +334,107 @@ static int qca_85xx_sw_init_qsgmii_port(struct qca_85xx_sw_qsgmii_cfg *qcfg)
 	}
 
 	if (part_b) {
-		ch0_ctrl_addr = QSGMII_5_CTRL0(group_num);
-		ch1_ctrl_addr = QSGMII_6_CTRL0(group_num);
-		ch2_ctrl_addr = QSGMII_7_CTRL0(group_num);
-		ch3_ctrl_addr = QSGMII_8_CTRL0(group_num);
+		ch_ctrl_addr[0] = QSGMII_5_CTRL0(group_num);
+		ch_ctrl_addr[1] = QSGMII_6_CTRL0(group_num);
+		ch_ctrl_addr[2] = QSGMII_7_CTRL0(group_num);
+		ch_ctrl_addr[3] = QSGMII_8_CTRL0(group_num);
 	} else {
-		ch0_ctrl_addr = QSGMII_1_CTRL0(group_num);
-		ch1_ctrl_addr = QSGMII_2_CTRL0(group_num);
-		ch2_ctrl_addr = QSGMII_3_CTRL0(group_num);
-		ch3_ctrl_addr = QSGMII_4_CTRL0(group_num);
+		ch_ctrl_addr[0] = QSGMII_1_CTRL0(group_num);
+		ch_ctrl_addr[1] = QSGMII_2_CTRL0(group_num);
+		ch_ctrl_addr[2] = QSGMII_3_CTRL0(group_num);
+		ch_ctrl_addr[3] = QSGMII_4_CTRL0(group_num);
 	}
 
-	val = priv->read(ch0_ctrl_addr);
+	for (i = 0; i < 4; i++) {
+		struct qca_85xx_sw_sgmii_cfg lane;
+		struct qca_85xx_sw_port_cfg *pcfg;
+		uint32_t port = qcfg->port_base + i;
 
-	/*
-	 * Set QSGMII MAC mode:
-	 * Note: with is_speed_forced the subsequent |= writes will OR
-	 * in the speed/duplex/link/force bits on top of this.
-	 */
-	val &= ~QSGMII_CTRL_QSGMII_MODE_PHY;
-	val |= QSGMII_CTRL_QSGMII_MODE_MAC;
-	if (qcfg->is_speed_forced == false)
-		val &= ~(QSGMII_CTRL_FORCE_SPEED | QSGMII_CTRL_FORCE_LINK_UP);
-	else {
-		val |= QSGMII_CTRL_FORCE_SPEED | QSGMII_CTRL_FORCE_LINK_UP;
-		if (qcfg->forced_speed == SPEED_1000)
-			val |= QSGMII_CTRL_FORCE_SPEED_1000
-				| QSGMII_CTRL_FORCE_DUPLEX_FULL;
-		else if (qcfg->forced_speed == SPEED_100)
-			val |= QSGMII_CTRL_FORCE_SPEED_100;
-		else if (qcfg->forced_speed == SPEED_10)
-			val |= QSGMII_CTRL_FORCE_SPEED_10;
-		else
-			return -EINVAL;
+		memset(&lane, 0, sizeof(lane));
+		lane.port_mode = qcfg->port_mode;
 
-		if (qcfg->forced_speed != SPEED_1000) {
-			if (qcfg->forced_duplex == DUPLEX_FULL)
-				val |= QSGMII_CTRL_FORCE_DUPLEX_FULL;
-			else
-				val &= ~QSGMII_CTRL_FORCE_DUPLEX_FULL;
+		/*
+		 * Per-lane speed/duplex come from the port node (normally
+		 * derived from the attached GMAC fixed-link).
+		 */
+		pcfg = qca_85xx_sw_find_port_cfg(pdata, port);
+		if (pcfg) {
+			lane.is_speed_forced = pcfg->sgmii_cfg.is_speed_forced;
+			lane.forced_speed = pcfg->sgmii_cfg.forced_speed;
+			lane.forced_duplex = pcfg->sgmii_cfg.forced_duplex;
 		}
-	}
 
-	/* Force the speed if necessary, set the SGMII mode, link up bit */
-	priv->write(ch0_ctrl_addr, val);
-	priv->write(ch1_ctrl_addr, val);
-	priv->write(ch2_ctrl_addr, val);
-	priv->write(ch3_ctrl_addr, val);
-
-	/* Turn off auto-neg in port_status_cfg */
-	val = priv->read(port_status_cfg(qcfg->port_base));
-
-	if (qcfg->is_speed_forced == false) {
-		/* Enable  Auto-negotiation */
-		val |= PORT_STATUS_AUTONEG_EN;
-	} else {
-		/* Disable Auto-negotiation */
-		val &= ~(PORT_STATUS_AUTONEG_EN
-				| PORT_STATUS_AUTO_FLOW_CTRL_EN
-				| PORT_STATUS_TX_HALF_FLOW_EN
-				| PORT_STATUS_RX_FLOW_EN
-				| PORT_STATUS_TX_FLOW_EN);
-		val |= (PORT_STATUS_RXMAC_EN | PORT_STATUS_TXMAC_EN);
-
-		/* Force the speed and duplex as configured */
-		if (qcfg->forced_speed == SPEED_1000)
-			val |= PORT_STATUS_FORCE_SPEED_1000 | PORT_STATUS_FORCE_DUPLEX_FULL;
-		else if (qcfg->forced_speed == SPEED_100)
-			val |= PORT_STATUS_FORCE_SPEED_100;
-		else if (qcfg->forced_speed == SPEED_10)
-			val |= PORT_STATUS_FORCE_SPEED_10;
-		else
-			return -EINVAL;
-
-		if (qcfg->forced_speed != SPEED_1000) {
-			if (qcfg->forced_duplex == DUPLEX_FULL)
-				val |= PORT_STATUS_FORCE_DUPLEX_FULL;
+		/*
+		 * Set QSGMII MAC mode:
+		 * Note: with is_speed_forced the subsequent |= writes will OR
+		 * in the speed/duplex/link/force bits on top of this.
+		 */
+		val = priv->read(ch_ctrl_addr[i]);
+		val &= ~QSGMII_CTRL_QSGMII_MODE_PHY;
+		val |= QSGMII_CTRL_QSGMII_MODE_MAC;
+		if (lane.is_speed_forced == false) {
+			val &= ~(QSGMII_CTRL_FORCE_SPEED |
+				 QSGMII_CTRL_FORCE_LINK_UP);
+		} else {
+			val |= QSGMII_CTRL_FORCE_SPEED |
+			       QSGMII_CTRL_FORCE_LINK_UP;
+			if (lane.forced_speed == SPEED_1000)
+				val |= QSGMII_CTRL_FORCE_SPEED_1000
+					| QSGMII_CTRL_FORCE_DUPLEX_FULL;
+			else if (lane.forced_speed == SPEED_100)
+				val |= QSGMII_CTRL_FORCE_SPEED_100;
+			else if (lane.forced_speed == SPEED_10)
+				val |= QSGMII_CTRL_FORCE_SPEED_10;
 			else
-				val &= ~PORT_STATUS_FORCE_DUPLEX_FULL;
-		}
-	}
+				return -EINVAL;
 
-	priv->write(port_status_cfg(qcfg->port_base), val);
-	priv->write(port_status_cfg(qcfg->port_base + 1), val);
-	priv->write(port_status_cfg(qcfg->port_base + 2), val);
-	priv->write(port_status_cfg(qcfg->port_base + 3), val);
+			if (lane.forced_speed != SPEED_1000) {
+				if (lane.forced_duplex == DUPLEX_FULL)
+					val |= QSGMII_CTRL_FORCE_DUPLEX_FULL;
+				else
+					val &= ~QSGMII_CTRL_FORCE_DUPLEX_FULL;
+			}
+		}
+
+		/* Force the speed if necessary, set the SGMII mode, link up bit */
+		priv->write(ch_ctrl_addr[i], val);
+
+		/* Turn off auto-neg in port_status_cfg */
+		val = priv->read(port_status_cfg(port));
+
+		if (lane.is_speed_forced == false) {
+			/* Enable  Auto-negotiation */
+			val |= PORT_STATUS_AUTONEG_EN;
+		} else {
+			/* Disable Auto-negotiation */
+			val &= ~(PORT_STATUS_AUTONEG_EN
+					| PORT_STATUS_AUTO_FLOW_CTRL_EN
+					| PORT_STATUS_TX_HALF_FLOW_EN
+					| PORT_STATUS_RX_FLOW_EN
+					| PORT_STATUS_TX_FLOW_EN);
+			val |= (PORT_STATUS_RXMAC_EN | PORT_STATUS_TXMAC_EN);
+
+			/* Force the speed and duplex as configured */
+			if (lane.forced_speed == SPEED_1000)
+				val |= PORT_STATUS_FORCE_SPEED_1000 |
+				       PORT_STATUS_FORCE_DUPLEX_FULL;
+			else if (lane.forced_speed == SPEED_100)
+				val |= PORT_STATUS_FORCE_SPEED_100;
+			else if (lane.forced_speed == SPEED_10)
+				val |= PORT_STATUS_FORCE_SPEED_10;
+			else
+				return -EINVAL;
+
+			if (lane.forced_speed != SPEED_1000) {
+				if (lane.forced_duplex == DUPLEX_FULL)
+					val |= PORT_STATUS_FORCE_DUPLEX_FULL;
+				else
+					val &= ~PORT_STATUS_FORCE_DUPLEX_FULL;
+			}
+		}
+
+		priv->write(port_status_cfg(port), val);
+	}
 
 	/* Set QSGMII mode in GLOBAL_CTRL_1 */
 	val = priv->read(GLOBAL_CTRL_1);
@@ -870,6 +900,7 @@ static int qca_85xx_sw_configure_port_isolation(struct qca_85xx_sw_port_isolatio
 static int qca8511_hw_init(struct qca_85xx_sw_platform_data *pdata)
 {
 	int ret = 0;
+	int i;
 	uint32_t val = 0;
 
 	/* Issue software reset and restore registers to default values */
@@ -918,57 +949,33 @@ static int qca8511_hw_init(struct qca_85xx_sw_platform_data *pdata)
 
 	/* Configuring QSGMII interface */
 	if (pdata->qsgmii_cfg.port_mode == QCA_85XX_SW_PORT_MODE_QSGMII) {
-		ret = qca_85xx_sw_init_qsgmii_port(&pdata->qsgmii_cfg);
+		ret = qca_85xx_sw_init_qsgmii_port(pdata);
 		if (ret != 0)
 			return ret;
 	}
 
-	/* Configure SGMII/SGMII+ interfaces */
-	if (pdata->port_24_cfg.port_mode != QCA_85XX_SW_PORT_MODE_NOT_CONFIGURED) {
-		ret = qca_85xx_sw_init_sgmii_port(QCA_85XX_SW_PORT_24,
-			&pdata->port_24_cfg);
-		if (ret != 0)
-			return ret;
-	}
+	/* Configure SGMII/SGMII+ interfaces from the port nodes */
+	for (i = 0; i < pdata->num_ports; i++) {
+		struct qca_85xx_sw_port_cfg *pcfg = &pdata->ports[i];
 
-	if (pdata->port_25_cfg.port_mode != QCA_85XX_SW_PORT_MODE_NOT_CONFIGURED) {
-		ret = qca_85xx_sw_init_sgmii_port(QCA_85XX_SW_PORT_25,
-			&pdata->port_25_cfg);
-		if (ret != 0)
-			return ret;
-	}
+		if (pcfg->sgmii_cfg.port_mode != QCA_85XX_SW_PORT_MODE_SGMII &&
+		    pcfg->sgmii_cfg.port_mode !=
+				QCA_85XX_SW_PORT_MODE_SGMII_PLUS)
+			continue;
 
-	if (pdata->port_26_cfg.port_mode != QCA_85XX_SW_PORT_MODE_NOT_CONFIGURED) {
-		ret = qca_85xx_sw_init_sgmii_port(QCA_85XX_SW_PORT_26,
-			&pdata->port_26_cfg);
-		if (ret != 0)
-			return ret;
-	}
-
-	if (pdata->port_27_cfg.port_mode != QCA_85XX_SW_PORT_MODE_NOT_CONFIGURED) {
-		ret = qca_85xx_sw_init_sgmii_port(QCA_85XX_SW_PORT_27,
-			&pdata->port_27_cfg);
-		if (ret != 0)
-			return ret;
-	}
-
-	if (pdata->port_28_cfg.port_mode != QCA_85XX_SW_PORT_MODE_NOT_CONFIGURED) {
-		ret = qca_85xx_sw_init_sgmii_port(QCA_85XX_SW_PORT_28,
-			&pdata->port_28_cfg);
-		if (ret != 0)
-			return ret;
-	}
-
-	if (pdata->port_29_cfg.port_mode != QCA_85XX_SW_PORT_MODE_NOT_CONFIGURED) {
-		ret = qca_85xx_sw_init_sgmii_port(QCA_85XX_SW_PORT_29,
-			&pdata->port_29_cfg);
+		ret = qca_85xx_sw_init_sgmii_port(
+			(enum qca_85xx_sw_gmac_port)pcfg->port,
+			&pcfg->sgmii_cfg);
 		if (ret != 0)
 			return ret;
 	}
 
 	/* Configure trunk (Link aggregated) interfaces */
-	if (pdata->trunk_cfg.is_trunk_enabled == true) {
-		ret = qca_85xx_sw_trunk_enable(&pdata->trunk_cfg);
+	for (i = 0; i < pdata->num_trunks; i++) {
+		if (pdata->trunk_cfgs[i].is_trunk_enabled != true)
+			continue;
+
+		ret = qca_85xx_sw_trunk_enable(&pdata->trunk_cfgs[i]);
 		if (ret != 0)
 			return ret;
 	}
@@ -1661,145 +1668,217 @@ static const struct switch_dev_ops qca_85xx_sw_ops = {
 	.phy_write16 = NULL,
 };
 
-static void qca_85xx_sw_of_get_pdata(struct device_node *np,
-				     struct qca_85xx_sw_platform_data *pdata)
+static struct device_node *qca_85xx_sw_get_ports_node(struct device_node *np)
 {
-	uint32_t is_config_set = 0;
-	int i, ret, count;
-	uint32_t ports[QCA_85XX_MAX_PORTS_PER_PROFILE];
-	uint32_t profile_id;
-	char propname[64];
+	return of_get_child_by_name(np, "ethernet-ports");
+}
 
-	of_property_read_u32(np,
-		"qcom,chip-id",
-		&pdata->chip_id);
-	of_property_read_u32(np,
-		"qcom,qsgmii-cfg-port-mode",
-		&pdata->qsgmii_cfg.port_mode);
-	of_property_read_u32(np,
-		"qcom,qsgmii-cfg-port-base",
-		&pdata->qsgmii_cfg.port_base);
+/*
+ * Parse the DSA-style port nodes.  Each port is identified by its switch
+ * port number (reg) and may carry an ethernet phandle (CPU port), a
+ * qcom,lag-group (LAG membership) and a qcom,isolation-profile.
+ *
+ * This mapping is deliberately phandle/port-number based: it does not
+ * depend on the GMAC instance IDs or on the order in which the GMAC
+ * devices probe.
+ */
+static void qca_85xx_sw_of_parse_ports(struct device_node *np,
+				       struct qca_85xx_sw_platform_data *pdata)
+{
+	struct qca_85xx_sw_port_isolation_cfg *iso = &pdata->port_isolation_cfg;
+	struct device_node *ports, *port, *eth;
+	uint32_t lag_bitmaps[QCA_85XX_MAX_TRUNKS] = { 0 };
+	uint32_t val;
+	int i, j, base = -1;
 
-	of_property_read_u32(np,
-		"qcom,qsgmii-cfg-is-speed-forced",
-		&is_config_set);
-	if (is_config_set == 1)
-		pdata->qsgmii_cfg.is_speed_forced = true;
-	else
-		pdata->qsgmii_cfg.is_speed_forced = false;
+	ports = qca_85xx_sw_get_ports_node(np);
+	if (!ports)
+		return;
 
-	is_config_set = 0;
-	of_property_read_u32(np,
-		"qcom,qsgmii-cfg-forced-speed",
-		&pdata->qsgmii_cfg.forced_speed);
-	of_property_read_u32(np,
-		"qcom,qsgmii-cfg-forced-duplex",
-		&pdata->qsgmii_cfg.forced_duplex);
-	of_property_read_u32(np,
-		"qcom,port-26-cfg-port-mode",
-		&pdata->port_26_cfg.port_mode);
+	/* Reset the derived port/trunk/isolation state. */
+	pdata->num_trunks = 0;
+	pdata->num_ports = 0;
+	memset(iso, 0, sizeof(*iso));
 
-	of_property_read_u32(np,
-		"qcom,port-26-cfg-is-speed-forced",
-		&is_config_set);
-	if (is_config_set == 1)
-		pdata->port_26_cfg.is_speed_forced = true;
-	else
-		pdata->port_26_cfg.is_speed_forced = false;
+	for_each_child_of_node(ports, port) {
+		struct qca_85xx_sw_port_cfg *pcfg;
+		struct qca_85xx_sw_port_isolation_profile *profile = NULL;
+		uint32_t reg;
 
-	is_config_set = 0;
-	of_property_read_u32(np,
-		"qcom,port-27-cfg-port-mode",
-		&pdata->port_27_cfg.port_mode);
-
-	of_property_read_u32(np,
-		"qcom,port-27-cfg-is-speed-forced",
-		&is_config_set);
-	if (is_config_set == 1)
-		pdata->port_27_cfg.is_speed_forced = true;
-	else
-		pdata->port_27_cfg.is_speed_forced = false;
-
-	is_config_set = 0;
-	of_property_read_u32(np,
-		"qcom,port-27-cfg-forced-speed",
-		&pdata->port_27_cfg.forced_speed);
-	of_property_read_u32(np,
-		"qcom,port-27-cfg-forced-duplex",
-		&pdata->port_27_cfg.forced_duplex);
-
-	of_property_read_u32(np,
-		"qcom,trunk-cfg-is-trunk-enabled",
-		&is_config_set);
-	if (is_config_set == 1)
-		pdata->trunk_cfg.is_trunk_enabled = true;
-	else
-		pdata->trunk_cfg.is_trunk_enabled = false;
-
-	of_property_read_u32(np,
-		"qcom,trunk-cfg-trunk-id",
-		&pdata->trunk_cfg.trunk_id);
-	of_property_read_u32(np,
-		"qcom,trunk-cfg-trunk-hash-policy",
-		&pdata->trunk_cfg.trunk_hash_policy);
-	of_property_read_u32(np,
-		"qcom,trunk-cfg-trunk-ports-bit-map",
-		&pdata->trunk_cfg.trunk_ports_bit_map);
-
-	/* Parse port isolation configuration */
-	of_property_read_u32(np,
-		"qcom,port-isolation-enable",
-		&is_config_set);
-	if (is_config_set == 1)
-		pdata->port_isolation_cfg.enabled = true;
-	else
-		pdata->port_isolation_cfg.enabled = false;
-
-	if (pdata->port_isolation_cfg.enabled) {
-		/* Parse each isolation profile */
-		for (i = 0; i < QCA_85XX_MAX_ISO_PROFILES; i++) {
-			snprintf(propname, sizeof(propname), 
-			         "qcom,port-isolation-profile%d-ports", i);
-			
-			count = of_property_count_u32_elems(np, propname);
-			if (count <= 0 || count > QCA_85XX_MAX_PORTS_PER_PROFILE)
-				continue;
-			
-			ret = of_property_read_u32_array(np, propname, ports, count);
-			if (ret)
-				continue;
-			
-			/* Get profile ID */
-			snprintf(propname, sizeof(propname), 
-			         "qcom,port-isolation-profile%d-id", i);
-			ret = of_property_read_u32(np, propname, &profile_id);
-			if (ret)
-				continue;
-			
-			/* Store profile configuration */
-			pdata->port_isolation_cfg.profiles[i].enabled = true;
-			pdata->port_isolation_cfg.profiles[i].profile_id = profile_id;
-			pdata->port_isolation_cfg.profiles[i].num_ports = count;
-			memcpy(pdata->port_isolation_cfg.profiles[i].ports, 
-			       ports, count * sizeof(uint32_t));
-			
-			pdata->port_isolation_cfg.num_profiles++;
+		if (of_property_read_u32(port, "reg", &reg))
+			continue;
+		if (reg >= QCA_85XX_MAX_PORTS)
+			continue;
+		if (pdata->num_ports >= ARRAY_SIZE(pdata->ports)) {
+			of_node_put(port);
+			break;
 		}
-		
-		/* Parse disable-learning ports */
-		count = of_property_count_u32_elems(np, "qcom,disable-learning-ports");
-		if (count > 0 && count <= QCA_85XX_MAX_PORTS_PER_PROFILE) {
-			ret = of_property_read_u32_array(np, "qcom,disable-learning-ports", 
-			                                  ports, count);
-			if (ret == 0) {
-				pdata->port_isolation_cfg.disable_learning_port_bitmap = 0;
-				for (i = 0; i < count; i++) {
-					if (ports[i] < QCA_85XX_MAX_PORTS)
-						pdata->port_isolation_cfg.disable_learning_port_bitmap |= (1 << ports[i]);
+
+		pcfg = &pdata->ports[pdata->num_ports++];
+		pcfg->port = reg;
+		pcfg->lag_group = -1;
+		pcfg->isolation_profile = -1;
+		pcfg->sgmii_plus = of_property_read_bool(port, "qcom,sgmii-plus");
+		pcfg->disable_learning = of_property_read_bool(port,
+							       "qcom,disable-learning");
+		pcfg->sgmii_cfg.port_mode = QCA_85XX_SW_PORT_MODE_NOT_CONFIGURED;
+		pcfg->sgmii_cfg.is_speed_forced = false;
+		pcfg->sgmii_cfg.forced_speed = 0;
+		pcfg->sgmii_cfg.forced_duplex = 0;
+
+		if (pcfg->sgmii_plus)
+			pcfg->sgmii_cfg.port_mode =
+				QCA_85XX_SW_PORT_MODE_SGMII_PLUS;
+
+		if (!of_property_read_u32(port, "qcom,lag-group", &val) &&
+		    val < QCA_85XX_MAX_TRUNKS) {
+			pcfg->lag_group = val;
+			lag_bitmaps[val] |= (1 << reg);
+		}
+
+		if (!of_property_read_u32(port, "qcom,isolation-profile", &val)) {
+			pcfg->isolation_profile = val;
+
+			for (i = 0; i < iso->num_profiles; i++) {
+				if (iso->profiles[i].profile_id == val) {
+					profile = &iso->profiles[i];
+					break;
 				}
+			}
+
+			if (!profile &&
+			    iso->num_profiles < QCA_85XX_MAX_ISO_PROFILES) {
+				profile = &iso->profiles[iso->num_profiles++];
+				profile->enabled = true;
+				profile->profile_id = val;
+			}
+
+			if (profile &&
+			    profile->num_ports < QCA_85XX_MAX_PORTS_PER_PROFILE)
+				profile->ports[profile->num_ports++] = reg;
+		}
+
+		if (pcfg->disable_learning)
+			iso->disable_learning_port_bitmap |= (1 << reg);
+
+		eth = of_parse_phandle(port, "ethernet", 0);
+		if (eth) {
+			const char *mode;
+			struct device_node *fixed;
+			uint32_t speed;
+
+			/*
+			 * A QSGMII GMAC marks this port as part of the
+			 * shared QSGMII group.  The lowest such port is
+			 * the lane base.
+			 */
+			if (!of_property_read_string(eth, "phy-mode", &mode) &&
+			    !strcmp(mode, "qsgmii")) {
+				pcfg->sgmii_cfg.port_mode =
+					QCA_85XX_SW_PORT_MODE_QSGMII;
+				pdata->qsgmii_cfg.port_mode =
+					QCA_85XX_SW_PORT_MODE_QSGMII;
+				if (base < 0 || reg < base)
+					base = reg;
+			}
+
+			/*
+			 * The GMAC fixed-link describes the GMAC side of
+			 * the link, so mirror its speed/duplex on the
+			 * switch port unless overridden below.
+			 */
+			fixed = of_get_child_by_name(eth, "fixed-link");
+			if (fixed) {
+				if (!of_property_read_u32(fixed, "speed",
+							  &speed)) {
+					pcfg->sgmii_cfg.is_speed_forced = true;
+					pcfg->sgmii_cfg.forced_speed = speed;
+					pcfg->sgmii_cfg.forced_duplex =
+						of_property_read_bool(fixed,
+							"full-duplex") ?
+						DUPLEX_FULL : DUPLEX_HALF;
+				}
+				of_node_put(fixed);
+			}
+
+			of_node_put(eth);
+		}
+
+		/* Explicit per-port properties override the GMAC defaults. */
+		if (!of_property_read_u32(port, "qcom,port-mode", &val))
+			pcfg->sgmii_cfg.port_mode = val;
+		if (!of_property_read_u32(port, "qcom,force-speed", &val)) {
+			pcfg->sgmii_cfg.is_speed_forced = true;
+			pcfg->sgmii_cfg.forced_speed = val;
+		}
+		if (!of_property_read_u32(port, "qcom,force-duplex", &val))
+			pcfg->sgmii_cfg.forced_duplex = val;
+	}
+	of_node_put(ports);
+
+	if (base >= 0)
+		pdata->qsgmii_cfg.port_base = base;
+
+	for (i = 0; i < QCA_85XX_MAX_TRUNKS; i++) {
+		struct qca_85xx_sw_trunk_cfg *tcfg;
+
+		if (!lag_bitmaps[i])
+			continue;
+
+		tcfg = &pdata->trunk_cfgs[pdata->num_trunks++];
+		tcfg->is_trunk_enabled = true;
+		tcfg->trunk_id = i;
+		tcfg->trunk_hash_policy = pdata->trunk_hash_policy;
+		tcfg->trunk_ports_bit_map = lag_bitmaps[i];
+	}
+
+	/* Keep profiles in profile-ID order to match the hardware table. */
+	for (i = 0; i < iso->num_profiles; i++) {
+		for (j = i + 1; j < iso->num_profiles; j++) {
+			if (iso->profiles[i].profile_id >
+			    iso->profiles[j].profile_id) {
+				struct qca_85xx_sw_port_isolation_profile tmp;
+
+				tmp = iso->profiles[i];
+				iso->profiles[i] = iso->profiles[j];
+				iso->profiles[j] = tmp;
 			}
 		}
 	}
+
+	iso->enabled = iso->num_profiles > 0;
+}
+
+static void qca_85xx_sw_of_get_pdata(struct device_node *np,
+				     struct qca_85xx_sw_platform_data *pdata)
+{
+	of_property_read_u32(np, "qcom,chip-id", &pdata->chip_id);
+	of_property_read_u32(np, "qcom,trunk-hash-policy",
+			     &pdata->trunk_hash_policy);
+
+	qca_85xx_sw_of_parse_ports(np, pdata);
+}
+
+/* Find the PHY node for the port marked as the SGMII+ uplink */
+static struct device_node *qca_85xx_sw_get_sgmii_plus_phy(struct device_node *np)
+{
+	struct device_node *ports, *port, *phy_node = NULL;
+
+	ports = qca_85xx_sw_get_ports_node(np);
+	if (!ports)
+		return NULL;
+
+	for_each_child_of_node(ports, port) {
+		if (!of_property_read_bool(port, "qcom,sgmii-plus"))
+			continue;
+
+		phy_node = of_parse_phandle(port, "phy-handle", 0);
+		of_node_put(port);
+		break;
+	}
+	of_node_put(ports);
+
+	return phy_node;
 }
 
 /* Find the ethernet netdevice attached to the SGMII+ Interface */
@@ -1815,10 +1894,10 @@ static struct net_device *qca_85xx_sw_get_eth_dev(struct platform_device *pdev)
 		return NULL;
 	}
 
-	/* Get PHY node from phandle */
-	phy_node = of_parse_phandle(np, "sgmii-plus-phy-handle", 0);
+	/* Get PHY node from the SGMII+ port (or legacy phandle) */
+	phy_node = qca_85xx_sw_get_sgmii_plus_phy(np);
 	if (!phy_node) {
-		printk(KERN_INFO "%s: cannot get sgmii-plus-phy-handle\n", __func__);
+		printk(KERN_INFO "%s: cannot get SGMII+ PHY node\n", __func__);
 		of_node_put(np);
 		return NULL;
 	}
@@ -1848,6 +1927,54 @@ static struct net_device *qca_85xx_sw_get_eth_dev(struct platform_device *pdev)
 	return phydev->attached_dev;
 }
 
+static int qca_85xx_sw_check_gmac_ready(struct device_node *gmac_node)
+{
+	struct platform_device *gmac_pdev;
+
+	gmac_pdev = of_find_device_by_node(gmac_node);
+	if (!gmac_pdev)
+		return -EPROBE_DEFER;
+
+	if (!gmac_pdev->dev.driver) {
+		platform_device_put(gmac_pdev);
+		return -EPROBE_DEFER;
+	}
+
+	platform_device_put(gmac_pdev);
+	return 0;
+}
+
+/*
+ * Wait for all GMACs referenced by the switch ports to be bound.  The
+ * references are phandles, so this does not depend on GMAC instance IDs
+ * or probe order.
+ */
+static int qca_85xx_sw_wait_for_gmacs(struct device_node *np)
+{
+	struct device_node *ports, *port, *gmac_node;
+	int ret;
+
+	ports = qca_85xx_sw_get_ports_node(np);
+	if (!ports)
+		return 0;
+
+	for_each_child_of_node(ports, port) {
+		gmac_node = of_parse_phandle(port, "ethernet", 0);
+		if (!gmac_node)
+			continue;
+
+		ret = qca_85xx_sw_check_gmac_ready(gmac_node);
+		of_node_put(gmac_node);
+		if (ret) {
+			of_node_put(ports);
+			return ret;
+		}
+	}
+
+	of_node_put(ports);
+	return 0;
+}
+
 static int qca_85xx_sw_probe(struct platform_device *pdev)
 {
 	struct mii_bus *mdio_bus;
@@ -1855,13 +1982,10 @@ static int qca_85xx_sw_probe(struct platform_device *pdev)
 	bool qca_85xx_sw_dev_registered = false;
 	struct switch_dev *swdev;
 	struct device_node *np = NULL;
-	struct device_node *gmac_node = NULL;
-	struct platform_device *gmac_pdev = NULL;
 	struct qca_85xx_sw_platform_data *pdata = NULL;
 	struct device_node *mdio_node = NULL;
 	struct platform_device *mdio_plat = NULL;
 	int ret = -EINVAL;
-	uint32_t gmac_count, i;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (pdata == NULL)
@@ -1874,34 +1998,10 @@ static int qca_85xx_sw_probe(struct platform_device *pdev)
 	qca_85xx_sw_of_get_pdata(np, pdata);
 
 	/* Check if we should wait for GMACs */
-	gmac_count = of_count_phandle_with_args(np, "qcom,gmac-devices", NULL);
-	if (gmac_count > 0) {
-		for (i = 0; i < gmac_count; i++) {
-			gmac_node = of_parse_phandle(np, "qcom,gmac-devices", i);
-			if (!gmac_node) {
-				printk(KERN_INFO "qca_85xx_sw: Failed to get GMAC node %d\n", i);
-				of_node_put(np);
-				return -EINVAL;
-			}
-			
-			/* Check if GMAC platform device exists and is bound */
-			gmac_pdev = of_find_device_by_node(gmac_node);
-			of_node_put(gmac_node);
-			
-			if (!gmac_pdev) {
-				of_node_put(np);
-				return -EPROBE_DEFER;
-			}
-			
-			/* Check if GMAC has a driver bound (means it's initialized) */
-			if (!gmac_pdev->dev.driver) {
-				platform_device_put(gmac_pdev);
-				of_node_put(np);
-				return -EPROBE_DEFER;
-			}
-			
-			platform_device_put(gmac_pdev);
-		}
+	ret = qca_85xx_sw_wait_for_gmacs(np);
+	if (ret) {
+		of_node_put(np);
+		return ret;
 	}
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);

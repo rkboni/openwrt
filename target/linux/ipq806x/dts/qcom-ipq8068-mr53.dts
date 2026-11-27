@@ -148,39 +148,68 @@
 		compatible = "qcom,qca-85xx-sw";
 		mdiobus = <&mdio0>;
 
-		sgmii-plus-phy-handle = <&phy_aquantia>; /* dynamic rate switching by polling phy */
-
 		qcom,chip-id = <1>;
-		qcom,qsgmii-cfg-port-mode = <1>;
-		qcom,qsgmii-cfg-port-base = <1>;
-		qcom,qsgmii-cfg-is-speed-forced = <1>;
-		qcom,qsgmii-cfg-forced-speed = <1000>;
-		qcom,qsgmii-cfg-forced-duplex = <1>;
 
-		qcom,port-26-cfg-port-mode = <2>;
-		qcom,port-26-cfg-is-speed-forced = <0>;
+		/*
+		 * The trunk hash policy is a single switch-global
+		 * register (TRUNK_HASH_KEY_SEL); LAG membership is
+		 * configured per port via qcom,lag-group.
+		 */
+		qcom,trunk-hash-policy = <0xff>;
 
-		qcom,port-27-cfg-port-mode = <3>;
-		qcom,port-27-cfg-is-speed-forced = <1>;
-		qcom,port-27-cfg-forced-speed = <2500>;
-		qcom,port-27-cfg-forced-duplex = <1>;
+		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-		qcom,trunk-cfg-is-trunk-enabled = <1>;
-		qcom,trunk-cfg-trunk-id = <0>;
-		qcom,trunk-cfg-trunk-hash-policy = <0xff>;
-		qcom,trunk-cfg-trunk-ports-bit-map = <0x1c>;
+			port@1 {
+				reg = <1>;
+				ethernet = <&gmac0>;
+				qcom,isolation-profile = <2>;
+				qcom,disable-learning;
+			};
 
-		qcom,port-isolation-enable = <1>;
+			port@2 {
+				reg = <2>;
+				ethernet = <&gmac1>;
+				qcom,lag-group = <0>;
+				qcom,isolation-profile = <1>;
+				qcom,disable-learning;
+			};
 
-		qcom,port-isolation-profile0-ports = <2 3 4 27>;
-		qcom,port-isolation-profile0-id = <1>;
+			port@3 {
+				reg = <3>;
+				ethernet = <&gmac2>;
+				qcom,lag-group = <0>;
+				qcom,isolation-profile = <1>;
+				qcom,disable-learning;
+			};
 
-		qcom,port-isolation-profile1-ports = <1 26>;
-		qcom,port-isolation-profile1-id = <2>;
+			port@4 {
+				reg = <4>;
+				ethernet = <&gmac3>;
+				qcom,lag-group = <0>;
+				qcom,isolation-profile = <1>;
+				qcom,disable-learning;
+			};
 
-		qcom,disable-learning-ports = <1 2 3 4 26 27>;
+			port@26 {
+				reg = <26>;
+				phy-handle = <&phy_ar8033>;
+				qcom,port-mode = <2>;	/* SGMII */
+				qcom,isolation-profile = <2>;
+				qcom,disable-learning;
+			};
 
-		qcom,gmac-devices = <&gmac0>, <&gmac1>, <&gmac2>, <&gmac3>;
+			port@27 {
+				reg = <27>;
+				phy-handle = <&phy_aquantia>;
+				qcom,isolation-profile = <1>;
+				qcom,sgmii-plus;
+				qcom,force-speed = <2500>;
+				qcom,force-duplex = <1>;
+				qcom,disable-learning;
+			};
+		};
 	};
 };
 
